@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>In-Game Chart — Offensive Play Chart</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body class="mode-desktop">
+
+<header class="topbar">
+  <div class="brand">IN&#8209;GAME<span>CHART</span></div>
+
+  <label class="field inline">
+    <span class="lbl">Game</span>
+    <select id="game-select" aria-label="Active game"></select>
+  </label>
+
+  <div class="scorechip" title="Our score, from what is charted">
+    <span class="lbl">US</span><strong id="our-score">0</strong>
+  </div>
+
+  <div class="grow"></div>
+
+  <div class="topbar-actions">
+    <button type="button" id="btn-export" class="btn" accesskey="e">Export</button>
+    <button type="button" id="btn-import" class="btn">Import</button>
+    <label class="field inline">
+      <span class="lbl">Layout</span>
+      <select id="mode-select" aria-label="Input layout">
+        <option value="auto">Auto</option>
+        <option value="desktop">Keyboard</option>
+        <option value="touch">Touch</option>
+      </select>
+    </label>
+    <button type="button" id="btn-help" class="btn" accesskey="?" title="Keyboard shortcuts and rules">?</button>
+  </div>
+</header>
+
+<div id="banners" aria-live="polite"></div>
+
+<section class="status" id="status">
+  <div class="status-dd">
+    <div class="status-lbl">Down &amp; distance</div>
+    <div class="big" id="dd">1st &amp; 10</div>
+  </div>
+  <div class="status-ball">
+    <div class="status-lbl">Ball on</div>
+    <div class="big" id="ball-on">&mdash;</div>
+  </div>
+  <div class="status-meta">
+    <div><span class="status-lbl">Drive</span> <strong id="drive-no">&mdash;</strong></div>
+    <div><span class="status-lbl">Plays</span> <strong id="drive-plays">0</strong></div>
+    <div><span class="status-lbl">Net</span> <strong id="drive-net">0</strong></div>
+    <div id="drive-state" class="tag"></div>
+  </div>
+</section>
+
+<main>
+  <section class="col col-entry">
+
+    <div class="panel panel-accent" id="drive-panel" hidden>
+      <h2 id="drive-panel-title">Start of drive</h2>
+      <p class="hint" id="drive-panel-hint">Enter the starting yard line. That is the only spot you ever type by hand.</p>
+      <form id="drive-form" class="row">
+        <label class="field grow">
+          <span class="lbl">Starting spot</span>
+          <input type="text" id="drive-spot" inputmode="text" autocomplete="off"
+                 placeholder="-25 = our 25, +40 = their 40" enterkeyhint="go">
+        </label>
+        <button type="submit" class="btn btn-primary btn-tall" accesskey="d">Start drive</button>
+      </form>
+      <div class="err" id="drive-spot-err" hidden></div>
+    </div>
+
+    <div class="panel panel-accent" id="conversion-panel" hidden>
+      <h2>Touchdown &mdash; extra point</h2>
+      <div class="row wrap">
+        <button type="button" class="btn btn-good btn-tall" id="btn-pat-good">PAT good</button>
+        <button type="button" class="btn btn-bad btn-tall" id="btn-pat-bad">PAT no good</button>
+        <button type="button" class="btn btn-tall" id="btn-two-point">Chart 2&#8209;pt try</button>
+        <button type="button" class="btn btn-quiet btn-tall" id="btn-skip-conv">Skip</button>
+      </div>
+    </div>
+
+    <div class="panel" id="entry-panel">
+      <h2 id="entry-title">Log a play</h2>
+      <div id="entry-mount"></div>
+    </div>
+
+    <div class="panel" id="actions-panel">
+      <h2>Drive actions</h2>
+      <div class="row wrap" id="quick-actions">
+        <button type="button" class="btn" data-end="punt" accesskey="p">Punt</button>
+        <button type="button" class="btn" data-end="missed-fg">Missed FG</button>
+        <button type="button" class="btn" data-end="half" accesskey="h">End half</button>
+        <button type="button" class="btn" data-end="game">End game</button>
+        <button type="button" class="btn" id="btn-kneel" accesskey="k">Kneel</button>
+        <button type="button" class="btn" id="btn-spike" accesskey="s">Spike</button>
+        <button type="button" class="btn btn-quiet" id="btn-undo" accesskey="z">Undo last play</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="col col-log">
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab" role="tab" data-tab="drive" accesskey="1">This drive</button>
+      <button type="button" class="tab" role="tab" data-tab="plays" accesskey="2">All plays</button>
+      <button type="button" class="tab" role="tab" data-tab="box" accesskey="3">Box score</button>
+      <button type="button" class="tab" role="tab" data-tab="games" accesskey="4">Games</button>
+    </nav>
+    <div class="tabpanels">
+      <div class="tabpanel" id="tab-drive" role="tabpanel"></div>
+      <div class="tabpanel" id="tab-plays" role="tabpanel" hidden></div>
+      <div class="tabpanel" id="tab-box" role="tabpanel" hidden></div>
+      <div class="tabpanel" id="tab-games" role="tabpanel" hidden></div>
+    </div>
+  </section>
+</main>
+
+<div class="touchbar" id="touchbar">
+  <button type="button" class="tb" id="tb-td">TD</button>
+  <button type="button" class="tb" id="tb-resolve">Resolve</button>
+  <button type="button" class="tb tb-primary" id="tb-log">Log play</button>
+</div>
+
+<dialog id="edit-dialog" class="dlg">
+  <form method="dialog" class="dlg-head">
+    <h2 id="edit-title">Edit play</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div id="edit-mount"></div>
+</dialog>
+
+<dialog id="resolve-dialog" class="dlg">
+  <form method="dialog" class="dlg-head">
+    <h2>Resolve last play</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body">
+    <p class="hint" id="resolve-hint"></p>
+    <form id="resolve-form" class="row">
+      <label class="field grow">
+        <span class="lbl">Final yard line</span>
+        <input type="text" id="resolve-spot" autocomplete="off" placeholder="-38 or +12" enterkeyhint="done">
+      </label>
+      <button type="submit" class="btn btn-primary btn-tall">Set yard line</button>
+    </form>
+    <div class="err" id="resolve-err" hidden></div>
+    <div class="row wrap gap-top">
+      <button type="button" class="btn btn-good btn-tall" id="btn-resolve-td">It was a touchdown</button>
+      <button type="button" class="btn btn-tall" id="btn-resolve-zero">No yards (turnover / clock)</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="drive-edit-dialog" class="dlg">
+  <form method="dialog" class="dlg-head">
+    <h2 id="drive-edit-title">Drive starting spot</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body">
+    <p class="hint">Fixing this re-runs down &amp; distance for the whole drive. Nothing outside
+      this drive changes.</p>
+    <form id="drive-edit-form" class="row">
+      <label class="field grow">
+        <span class="lbl">Starting spot</span>
+        <input type="text" id="drive-edit-spot" autocomplete="off" placeholder="-25 or +40" enterkeyhint="done">
+      </label>
+      <button type="submit" class="btn btn-primary btn-tall">Save</button>
+    </form>
+    <div class="err" id="drive-edit-err" hidden></div>
+  </div>
+</dialog>
+
+<dialog id="import-dialog" class="dlg">
+  <form method="dialog" class="dlg-head">
+    <h2>Import data</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body">
+    <p class="hint">Pick an exported <code>.json</code> file &mdash; from this laptop, or from the USB drive.</p>
+    <div class="row wrap">
+      <button type="button" class="btn btn-primary btn-tall" id="btn-import-merge">Merge into this data</button>
+      <button type="button" class="btn btn-bad btn-tall" id="btn-import-replace">Replace everything</button>
+    </div>
+    <p class="hint">Merge keeps games you already have and updates any game with the same ID. Replace throws away what is in this browser.</p>
+  </div>
+</dialog>
+
+<dialog id="export-dialog" class="dlg">
+  <form method="dialog" class="dlg-head">
+    <h2>Export</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body">
+    <p class="hint">Saved data lives in this browser, not on the drive. Export at the end of every game and save it onto the USB drive.</p>
+    <div class="col-buttons">
+      <button type="button" class="btn btn-primary btn-tall" id="btn-export-json">All games &mdash; JSON (re&#8209;importable)</button>
+      <button type="button" class="btn btn-tall" id="btn-export-plays">This game &mdash; play chart CSV</button>
+      <button type="button" class="btn btn-tall" id="btn-export-box">This game &mdash; box score CSV</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="help-dialog" class="dlg dlg-wide">
+  <form method="dialog" class="dlg-head">
+    <h2>How this works</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body" id="help-body"></div>
+</dialog>
+
+<dialog id="game-dialog" class="dlg">
+  <form method="dialog" class="dlg-head">
+    <h2 id="game-dialog-title">New game</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body">
+    <form id="game-form">
+      <label class="field"><span class="lbl">Name</span>
+        <input type="text" id="game-name" autocomplete="off" placeholder="Week 3"></label>
+      <label class="field"><span class="lbl">Opponent</span>
+        <input type="text" id="game-opponent" autocomplete="off" placeholder="Central"></label>
+      <label class="field"><span class="lbl">Date</span>
+        <input type="date" id="game-date"></label>
+      <div class="row gap-top">
+        <button type="submit" class="btn btn-primary btn-tall" id="game-save">Save</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<input type="file" id="import-file" accept=".json,application/json,text/plain" hidden>
+
+<script src="js/dom.js"></script>
+<script src="js/model.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/store.js"></script>
+<script src="js/io.js"></script>
+<script src="js/app.js"></script>
+<script src="js/playform.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
