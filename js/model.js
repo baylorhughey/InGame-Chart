@@ -44,7 +44,8 @@
       startSpot: attrs.startSpot,
       startedAt: attrs.startedAt || nowIso(),
       note: attrs.note || '',
-      manualEnd: attrs.manualEnd || null   // {reason:'punt'|'missed-fg'|'half'|'game'|'other', at}
+      manualEnd: attrs.manualEnd || null,  // {reason:'punt'|'missed-fg'|'half'|'game'|'other', at}
+      conversionSkipped: !!attrs.conversionSkipped
     };
   }
 

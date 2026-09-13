@@ -176,9 +176,11 @@
     return p;
   };
 
-  App.addPat = function (good) {
+  // driveId lets a conversion be added to an earlier scoring drive, so a PAT
+  // that was missed in the moment can still be recorded later.
+  App.addPat = function (good, driveId) {
     var g = App.activeGame();
-    var d = App.currentDrive();
+    var d = driveId ? findDrive(driveId) : App.currentDrive();
     if (!g || !d) return null;
     var p = M.makePat({ gameId: g.id, driveId: d.id, good: good });
     g.plays.push(p);
@@ -188,11 +190,39 @@
 
   // A 2-point try is charted like any snap; isTwoPoint keeps it out of down &
   // distance and out of the box score.
-  App.addTwoPoint = function (attrs) {
+  App.addTwoPoint = function (attrs, driveId) {
     attrs = attrs || {};
     attrs.isTwoPoint = true;
+    if (driveId) attrs.driveId = driveId;
     return App.logPlay(attrs);
   };
+
+  /*
+   * The result of a try, with nothing else charted. Fine as a record: a
+   * 2-point try never contributes to anyone's totals anyway, so all that is
+   * lost is the wording - which the edit dialog can still fill in.
+   */
+  App.addTwoPointResult = function (good, driveId) {
+    return App.addTwoPoint({
+      spot: 2, playType: 'run', td: !!good, playCall: '2-pt try'
+    }, driveId);
+  };
+
+  // Not watching the kick is not the same as it never happening: the drive
+  // review still offers it afterwards.
+  App.skipConversion = function (driveId) {
+    var d = driveId ? findDrive(driveId) : App.currentDrive();
+    if (!d) return;
+    d.conversionSkipped = true;
+    App.commit();
+  };
+
+  function findDrive(id) {
+    var g = App.activeGame();
+    if (!g) return null;
+    for (var i = 0; i < g.drives.length; i++) if (g.drives[i].id === id) return g.drives[i];
+    return null;
+  }
 
   App.getPlay = function (id) {
     var g = App.activeGame();
@@ -271,12 +301,23 @@
     return p;
   };
 
-  App.undoLastPlay = function () {
+  /*
+   * Undo the last thing entered. On a drive that has no plays yet, that thing
+   * was starting the drive, so the drive itself comes back off.
+   */
+  App.undoLast = function () {
     var g = App.activeGame();
-    if (!g || !g.plays.length) return null;
+    if (!g) return null;
+    var d = App.currentDrive();
+    if (d && !g.plays.some(function (p) { return p.driveId === d.id; })) {
+      g.drives.pop();
+      App.commit();
+      return { kind: 'drive', record: d };
+    }
+    if (!g.plays.length) return null;
     var p = g.plays.pop();
     App.commit();
-    return p;
+    return { kind: 'play', record: p };
   };
 
   /* ---------------- season roll-up ---------------- */

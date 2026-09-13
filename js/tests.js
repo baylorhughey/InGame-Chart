@@ -452,6 +452,65 @@
     near(g.box.receiving['80'].yards, 60);
   });
 
+  test('an extra point can still be recorded after the next drive starts', function () {
+    var b = new Builder();
+    b.startDrive(3);
+    b.play({ spot: 3, playType: 'run', carrier: '22', td: true });
+    var scoring = b.drive;
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'run', carrier: '22' });
+
+    var g1 = b.compute();
+    eq(g1.score, 6, 'the kick was never entered');
+    eq(g1.drives[0].needsConversion, true, 'the scoring drive still wants one');
+    eq(g1.current.needsConversion, false, 'but it no longer blocks the live drive');
+
+    // Recorded later, against the drive that actually scored.
+    b.game.plays.push(M.makePat({ gameId: b.game.id, driveId: scoring.id, good: true }));
+    var g2 = b.compute();
+    eq(g2.score, 7, 'the point is recoverable');
+    eq(g2.drives[0].needsConversion, false);
+  });
+
+  test('re-entering a conversion corrects it instead of scoring twice', function () {
+    var b = new Builder();
+    b.startDrive(3);
+    b.play({ spot: 3, playType: 'run', carrier: '22', td: true });
+    b.pat(true);
+    b.pat(true);
+    eq(b.compute().score, 7, 'two good PATs on one drive are still one point');
+    b.pat(false);
+    eq(b.compute().score, 6, 'the last one entered is the one that counts');
+  });
+
+  test('skipping the extra point stops the prompt but keeps it reachable', function () {
+    var b = new Builder();
+    b.startDrive(3);
+    b.play({ spot: 3, playType: 'run', carrier: '22', td: true });
+    var g1 = b.compute();
+    eq(g1.current.needsConversion, true);
+    b.drive.conversionSkipped = true;
+    var g2 = b.compute();
+    eq(g2.current.needsConversion, false, 'the panel stops asking');
+    eq(g2.drives[0].needsConversion, true, 'the drive review still offers it');
+    eq(g2.score, 6);
+  });
+
+  test('junk overrides are ignored rather than poisoning the drive', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    var p = b.play({ spot: -25, playType: 'run', carrier: '3' });
+    b.play({ spot: -31, playType: 'run', carrier: '3' });
+    b.play({ spot: -35, playType: 'run', carrier: '3' });
+    // The shape an imported or hand-edited file can arrive in.
+    p.overrides = { down: 'abc', distance: '', yards: null };
+    var r = b.compute().drives[0].rows;
+    eq(dd(r[0]), '1st & 10');
+    near(r[0].yards, 6, 'the chain still computes');
+    eq(dd(r[1]), '2nd & 4');
+    near(b.compute().box.rushing['3'].yards, 10);
+  });
+
   /* ----- editing and recalculation ------------------------------------ */
 
   test('editing a snap spot ripples forward through the drive', function () {

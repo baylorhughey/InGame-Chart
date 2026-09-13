@@ -117,6 +117,19 @@ yards are all derived from the chain of snap spots.
 - Corrections are silent. No "edited" badge, no history trail — the chart just shows the
   corrected truth.
 
+Three things that aren't plays are correctable too, because each of them can otherwise
+put a wrong number on the board with no way back to it:
+
+- **A drive's starting spot.** Click `from -25` in the drive header. The whole drive's down
+  and distance re-run off the corrected start; nothing outside that drive moves.
+- **A missed extra point.** If you start the next drive without recording the kick, the
+  score would be a point short for the rest of the game. The drive review flags any
+  touchdown with no conversion on it and lets you record it then — PAT good, no good, or a
+  2-point result — against the drive that actually scored. Entering one again corrects it
+  rather than scoring twice.
+- **Undo** (`Alt`+`Z`) takes back the last thing you entered. On a drive you've just started
+  and not yet charted, that thing was the drive, so the drive comes back off.
+
 ## Files
 
 ```

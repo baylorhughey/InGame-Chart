@@ -142,8 +142,9 @@
       pending: false, halved: false, penaltyYards: 0
     };
 
-    if (ov.yards != null && ov.yards !== '') {
-      out.yards = round1(Number(ov.yards));
+    var ovYards = optNum(ov.yards);
+    if (ovYards != null) {
+      out.yards = round1(ovYards);
       out.endFp = clampFp(snapFp + out.yards);
       out.statYards = pen ? (pen.beyondLOS ? creditedYards(p) : 0) : out.yards;
       return out;
@@ -204,6 +205,14 @@
     return out;
   }
 
+  // Overrides can arrive from an imported or hand-edited file, where a junk
+  // value would otherwise turn every number after it into NaN.
+  function optNum(v) {
+    if (v == null || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
   function creditedYards(p) {
     var pen = penaltyOf(p);
     if (!pen) return 0;
@@ -243,8 +252,10 @@
 
       // Hand-corrected down/distance are respected, and the auto-logic picks
       // back up from whatever the coach entered.
-      if (ov.down != null && ov.down !== '') down = Math.max(1, Math.min(4, Number(ov.down)));
-      if (ov.distance != null && ov.distance !== '') ltg = Math.min(snapFp + Number(ov.distance), 100);
+      var ovDown = optNum(ov.down);
+      var ovDist = optNum(ov.distance);
+      if (ovDown != null) down = Math.max(1, Math.min(4, ovDown));
+      if (ovDist != null) ltg = Math.min(snapFp + ovDist, 100);
 
       var dist = round1(ltg - snapFp);
       if (dist < 0) dist = 0;
@@ -308,11 +319,13 @@
     // ended the drive.
     if (!ended && drive.manualEnd) ended = drive.manualEnd.reason;
 
+    // Only the last conversion on a drive counts. Entering one again corrects
+    // the first rather than scoring twice.
     var conversions = allPlays.filter(isConversion);
     var points = 0;
     var conv = null;
-    for (var c = 0; c < conversions.length; c++) {
-      var cp = conversions[c];
+    if (conversions.length) {
+      var cp = conversions[conversions.length - 1];
       if (cp.kind === 'pat') { conv = { type: 'kick', good: !!cp.patGood, id: cp.id }; if (cp.patGood) points += 1; }
       else { conv = { type: 'two', good: !!cp.td, id: cp.id }; if (cp.td) points += 2; }
     }
@@ -336,7 +349,11 @@
       pending: pending,
       ended: ended,
       endedByPlayId: endedByPlayId,
+      // A scored TD whose extra point was never recorded. Stays true after a
+      // skip so the drive review can still offer it - a point that never got
+      // entered is otherwise lost for good.
       needsConversion: ended === 'td' && !conv,
+      conversionSkipped: !!drive.conversionSkipped,
       conversion: conv,
       points: points,
       netYards: net,
@@ -467,7 +484,7 @@
       pending: last ? last.pending : false,
       driveEnded: last ? last.ended : null,
       needsDrive: !last || !!last.ended,
-      needsConversion: last ? last.needsConversion : false,
+      needsConversion: last ? (last.needsConversion && !last.conversionSkipped) : false,
       // What the next snap spot almost certainly is. Blank while pending.
       nextSpot: (last && !last.pending && !last.ended) ? toSigned(last.ballFp) : null
     };

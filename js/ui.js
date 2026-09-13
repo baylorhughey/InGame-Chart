@@ -20,6 +20,7 @@
     editingId: null,
     importMode: 'merge',
     editingDriveId: null,
+    twoPointDriveId: null,
     gameDialogMode: 'new',
     notice: null
   };
@@ -97,7 +98,8 @@
       if (wasTwoPoint) {
         attrs.isTwoPoint = true;
         entryForm.setTwoPoint(false);
-        App.addTwoPoint(attrs);
+        App.addTwoPoint(attrs, ui.twoPointDriveId);
+        ui.twoPointDriveId = null;
       } else {
         App.logPlay(attrs);
       }
@@ -202,12 +204,12 @@
     qs('#btn-pat-bad').addEventListener('click', function () { App.addPat(false); focusForEntry(); });
     qs('#btn-skip-conv').addEventListener('click', function () {
       ui.chartingTwoPoint = false;
-      ui.skipConversionFor = App.currentDrive() ? App.currentDrive().id : null;
-      render();
+      App.skipConversion();
       focusForEntry();
     });
     qs('#btn-two-point').addEventListener('click', function () {
       ui.chartingTwoPoint = true;
+      ui.twoPointDriveId = null;
       entryForm.reset({});
       entryForm.setTwoPoint(true);
       // A try is snapped from a fixed spot, not from where the TD ended.
@@ -231,8 +233,12 @@
       }, 'spike');
     });
     qs('#btn-undo').addEventListener('click', function () {
-      var p = App.undoLastPlay();
-      if (p) notice('info', 'Removed the last entry.');
+      var undone = App.undoLast();
+      if (undone) {
+        notice('info', undone.kind === 'drive'
+          ? 'Removed the drive that had not started yet.'
+          : 'Removed the last entry.');
+      }
       focusForEntry();
     });
   }
@@ -523,8 +529,7 @@
   function renderPanels(c) {
     var cur = c.current;
     var last = c.drives.length ? c.drives[c.drives.length - 1] : null;
-    var needConv = cur.needsConversion &&
-      !(ui.skipConversionFor && last && last.drive.id === ui.skipConversionFor);
+    var needConv = cur.needsConversion;
 
     D.show(qs('#conversion-panel'), needConv && !ui.chartingTwoPoint);
     D.show(qs('#drive-panel'), cur.needsDrive && !ui.chartingTwoPoint && !needConv);
@@ -543,7 +548,7 @@
 
     var pending = !!App.pendingPlay();
     qs('#tb-resolve').disabled = !pending;
-    qs('#btn-undo').disabled = !(App.activeGame().plays || []).length;
+    qs('#btn-undo').disabled = !(App.activeGame().plays || []).length && !c.drives.length;
   }
 
   function noteForSpot(cur) {
@@ -650,6 +655,10 @@
     ]);
   }
 
+  function convButton(label, fn) {
+    return el('button', { type: 'button', class: 'btn btn-sm', onclick: fn }, [label]);
+  }
+
   function endLabel(reason) {
     return ({
       td: 'Touchdown', downs: 'Turnover on downs', fumble: 'Fumble lost',
@@ -688,6 +697,18 @@
     ]);
     if (opts.controls) head.appendChild(opts.controls);
     frag.appendChild(head);
+
+    // A touchdown whose extra point never got entered would otherwise leave
+    // the score short for the rest of the game, with no way back to it.
+    if (driveComputed.needsConversion) {
+      frag.appendChild(el('div', { class: 'conv-row' }, [
+        el('span', { class: 'meta', text: 'No extra point recorded for this touchdown:' }),
+        convButton('PAT good', function () { App.addPat(true, drive.id); }),
+        convButton('PAT no good', function () { App.addPat(false, drive.id); }),
+        convButton('2-pt good', function () { App.addTwoPointResult(true, drive.id); }),
+        convButton('2-pt failed', function () { App.addTwoPointResult(false, drive.id); })
+      ]));
+    }
 
     var list = el('div', { class: 'playlist' });
     var plays = playsOfDrive(game, drive.id);
