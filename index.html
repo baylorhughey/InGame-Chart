@@ -363,6 +363,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
   gap: 0.6rem;
   background: #fbfcfd;
 }
+.pf-grid > .pf-span { grid-column: 1 / -1; }
 .pf-context:empty, .pf-context[hidden] { display: none; }
 .pf-submit { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 .pf-submit .btn-primary { flex: 1 1 auto; }
@@ -1157,7 +1158,7 @@ body.mode-touch .touchbar {
 /*
  * model.js — record shapes and factories.
  *
- * Records are deliberately flat and boring: formation / backfield / motion /
+ * Records are deliberately flat and boring: formation / motion /
  * playCall are plain strings so Phase 2 can hang an autocomplete library off
  * the same field without migrating a single stored game.
  */
@@ -1223,6 +1224,8 @@ body.mode-touch .touchbar {
       spot: attrs.spot == null ? null : Number(attrs.spot),
 
       formation: attrs.formation || '',
+      // No longer collected - the form dropped it as an extra step per snap -
+      // but kept on the record so an older export still imports intact.
       backfield: attrs.backfield || '',
       motion: attrs.motion || '',
       playCall: attrs.playCall || '',
@@ -2058,7 +2061,7 @@ body.mode-touch .touchbar {
 
   // The paper chart's columns, plus what the engine derived.
   function playsCsv(game, computed) {
-    var head = ['Drive', 'Play #', 'Down', 'Dist', 'Yard Line', 'Formation', 'Backfield',
+    var head = ['Drive', 'Play #', 'Down', 'Dist', 'Yard Line', 'Formation',
       'Motion', 'Play', 'Type', 'Detail', 'Carrier', 'QB', 'Receiver', 'Yards', 'TD',
       'Result', 'Timestamp'];
     var rows = [head];
@@ -2074,7 +2077,7 @@ body.mode-touch .touchbar {
         row ? row.down : '',
         row ? (row.goalToGo ? 'Goal' : E.num(row.distance)) : '',
         p.kind === 'pat' ? '' : E.formatSpot(p.spot),
-        p.formation, p.backfield, p.motion, p.playCall,
+        p.formation, p.motion, p.playCall,
         p.kind === 'pat' ? 'PAT' : p.playType,
         detailOf(p),
         p.carrier, p.qb, p.receiver,
@@ -2635,7 +2638,7 @@ body.mode-touch .touchbar {
  *
  * Every control is built up front and shown or hidden as the play type
  * changes, so DOM order == Tab order == the order the coach fills it in:
- *   formation -> backfield -> motion -> play call -> snap spot -> play type
+ *   formation -> motion -> play call -> snap spot -> play type
  *   -> outcome -> player numbers -> TD -> log.
  */
 ;(function (global) {
@@ -2684,11 +2687,10 @@ body.mode-touch .touchbar {
 
     /* --- the four free-text fields (Phase 2 hangs autocomplete off these) --- */
     var formation = D.field({ label: 'Formation', placeholder: 'Trips Rt', enterkeyhint: 'next' });
-    var backfield = D.field({ label: 'Backfield', placeholder: 'Pistol', enterkeyhint: 'next' });
     var motion = D.field({ label: 'Motion', placeholder: 'Z jet', enterkeyhint: 'next' });
-    var playCall = D.field({ label: 'Play call', placeholder: 'Power R', enterkeyhint: 'next' });
+    var playCall = D.field({ label: 'Play call', class: 'pf-span', placeholder: 'Power R', enterkeyhint: 'next' });
     root.appendChild(D.el('div', { class: 'pf-grid pf-row-detail' }, [
-      formation.wrap, backfield.wrap, motion.wrap, playCall.wrap
+      formation.wrap, motion.wrap, playCall.wrap
     ]));
 
     /* --- snap spot: the only field position ever typed --- */
@@ -2912,7 +2914,7 @@ body.mode-touch .touchbar {
 
     api.root = root;
     api.elements = {
-      formation: formation.input, backfield: backfield.input, motion: motion.input,
+      formation: formation.input, motion: motion.input,
       playCall: playCall.input, spot: spot.input, carrier: carrier.input, qb: qb.input,
       receiver: receiver.input, td: td.input, submit: submitBtn
     };
@@ -2920,7 +2922,6 @@ body.mode-touch .touchbar {
     api.setValues = function (p) {
       p = p || {};
       formation.input.value = p.formation || '';
-      backfield.input.value = p.backfield || '';
       motion.input.value = p.motion || '';
       playCall.input.value = p.playCall || '';
       spot.input.value = p.spot == null ? '' : E.formatSpot(p.spot);
@@ -2982,7 +2983,6 @@ body.mode-touch .touchbar {
       var attrs = {
         spot: parsed.value,
         formation: formation.input.value.trim(),
-        backfield: backfield.input.value.trim(),
         motion: motion.input.value.trim(),
         playCall: playCall.input.value.trim(),
         carrier: '', qb: '', receiver: '',
@@ -3043,7 +3043,6 @@ body.mode-touch .touchbar {
     api.reset = function (o) {
       o = o || {};
       formation.input.value = '';
-      backfield.input.value = '';
       motion.input.value = '';
       playCall.input.value = '';
       carrier.input.value = '';

@@ -58,8 +58,8 @@ control when there is no next snap: end of half, end of game, a turnover, a fina
 
 ### Keyboard (desktop)
 
-Tab order is the order you fill the form in: formation → backfield → motion → play call →
-snap spot → play type → player numbers → TD → log. **Enter logs the play from any field.**
+Tab order is the order you fill the form in: formation → motion → play call → snap spot →
+play type → player numbers → TD → log. **Enter logs the play from any field.**
 
 Play type is a dropdown. Arrow keys move through it, or press a single letter to jump
 straight to a type — **R**un, **P**ass, **S**ack, penalty **F**lag, **T**urnover,
@@ -164,14 +164,16 @@ a section, search the file for its banner (`* engine.js`).
 
 ## Data model
 
-One play record carries: game and drive ID, down, distance, snap spot, formation,
-backfield, motion, play call, play type, player numbers, resolved yards (or null while
-pending), TD flag, penalty details including the beyond-the-LOS flag, turnover details,
-overrides, and a timestamp. Down, distance and yards are written back onto the record
+One play record carries: game and drive ID, down, distance, snap spot, formation, motion,
+play call, play type, player numbers, resolved yards (or null while pending), TD flag,
+penalty details including the beyond-the-LOS flag, turnover details, overrides, and a
+timestamp. A `backfield` string is still on the record — the form dropped it as an extra
+step per snap, but anything already charted in it survives an export and import, and still
+shows on the play row. Down, distance and yards are written back onto the record
 after each recalculation so exports carry them, but the play log remains the only source
 of truth.
 
-Formation, backfield, motion and play call are **plain strings** on the record. The Phase 2
+Formation, motion and play call are **plain strings** on the record. The Phase 2
 autocomplete library and spreadsheet import can be layered on top without migrating a
 single stored game.
 
