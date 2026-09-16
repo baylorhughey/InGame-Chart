@@ -56,6 +56,51 @@
   }
 
   /*
+   * A plain <select>, exposing the same {root,get,set,focus} shape as
+   * segment() so either can drive a field. Native selects already give you
+   * arrow keys and type-ahead, and Enter falls through to the form, which is
+   * what logs the play.
+   */
+  function select(opts) {
+    var sel = el('select', { 'aria-label': opts.label || '' });
+    opts.items.forEach(function (item) {
+      sel.appendChild(el('option', { value: item.value, text: item.label }));
+    });
+    sel.value = opts.value || opts.items[0].value;
+    sel.addEventListener('change', function () {
+      if (opts.onChange) opts.onChange(sel.value, 'select');
+    });
+
+    /*
+     * One keystroke per option, on top of the dropdown's own arrow keys.
+     * Native type-ahead can't do this unambiguously - "Pass" and "Penalty"
+     * share a letter - and losing a deterministic single key would cost the
+     * keyboard flow the whole point of it.
+     */
+    var keyed = opts.items.filter(function (i) { return i.key; });
+    if (keyed.length) {
+      sel.addEventListener('keydown', function (ev) {
+        if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.key.length !== 1) return;
+        var want = ev.key.toLowerCase(), hit = null;
+        keyed.forEach(function (i) { if (i.key.toLowerCase() === want) hit = i; });
+        if (!hit) return;
+        ev.preventDefault();
+        // Pressing R on a dropdown already showing Run is still a decision:
+        // it has to move the coach on to the number, not sit there.
+        var same = sel.value === hit.value;
+        if (!same) sel.value = hit.value;
+        if (opts.onChange) opts.onChange(sel.value, 'key', same);  // .value fires no change
+      });
+    }
+    return {
+      root: sel,
+      get: function () { return sel.value; },
+      set: function (v) { sel.value = v; },
+      focus: function () { sel.focus(); }
+    };
+  }
+
+  /*
    * Segmented radio control: click, arrow keys, or the letter shown on the
    * button. Enter is deliberately left alone so it still logs the play.
    */
@@ -139,5 +184,8 @@
     };
   }
 
-  FB.dom = { el: el, qs: qs, qsa: qsa, clear: clear, show: show, field: field, toggle: toggle, segment: segment };
+  FB.dom = {
+    el: el, qs: qs, qsa: qsa, clear: clear, show: show,
+    field: field, toggle: toggle, segment: segment, select: select
+  };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

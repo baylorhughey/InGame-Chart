@@ -320,6 +320,27 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
 /* ---------------- play form ---------------- */
 
 .pf { display: flex; flex-direction: column; gap: 0.6rem; }
+.pf-lock {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  color: var(--accent);
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+.pf-lock .btn { margin-left: auto; }
+/* Locked: visible, readable, and plainly not ready for input yet. */
+.pf-locked .pf-grid,
+.pf-locked .row,
+.pf-locked .field,
+.pf-locked .pf-context,
+.pf-locked .pf-submit { opacity: 0.55; }
+.pf-locked .pf-lock { opacity: 1; }
 .pf-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -55,10 +55,12 @@ control when there is no next snap: end of half, end of game, a turnover, a fina
 
 Tab order is the order you fill the form in: formation → backfield → motion → play call →
 snap spot → play type → player numbers → TD → log. **Enter logs the play from any field.**
-On the play-type buttons, arrow keys move and the letter on the button selects
-(**R**un, **P**ass, **S**ack, penalty **F**lag, **T**urnover, safet**Y**); picking one jumps
-straight to the number that play needs. A whole game can be charted without touching the
-mouse.
+
+Play type is a dropdown. Arrow keys move through it, or press a single letter to jump
+straight to a type — **R**un, **P**ass, **S**ack, penalty **F**lag, **T**urnover,
+safet**Y**. (The letters are ours, not the browser's type-ahead, so `F` gets you Penalty
+without colliding with Pass.) Picking one by letter jumps straight to the number that play
+needs, so a whole game can be charted without touching the mouse.
 
 Drive actions use browser access keys — `Alt`+`D` start drive, `Alt`+`P` punt, `Alt`+`K`
 kneel, `Alt`+`S` spike, `Alt`+`H` end half, `Alt`+`Z` undo, `Alt`+`E` export, plus
@@ -104,6 +106,10 @@ These follow the high-school / NCAA scoring a sideline chart is actually keeping
 
 Our score comes straight off the chart: 6 for a touchdown, then 1 or 2 for the conversion.
 Opponent scoring and defensive/special-teams scores are Phase 2.
+
+The form is always on screen. Until a drive has been started it sits greyed out with the
+reason on it and a button that takes you to the starting-spot field — the one input that
+has to come first.
 
 ## Fixing mistakes mid-game
 

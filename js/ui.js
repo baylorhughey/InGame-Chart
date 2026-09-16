@@ -35,9 +35,15 @@
     entryForm = FB.PlayForm.create({
       mode: 'entry',
       onSubmit: onLogPlay,
-      shouldAutoFocus: function () { return !isTouch(); }
+      shouldAutoFocus: function () { return !isTouch(); },
+      onLockedClick: function () {
+        var spot = qs('#drive-spot');
+        if (spot) { spot.focus(); spot.scrollIntoView({ block: 'center' }); }
+      }
     });
-    qs('#entry-mount').appendChild(entryForm.root);
+    var mount = qs('#entry-mount');
+    D.clear(mount);                       // drops the did-not-start fallback
+    mount.appendChild(entryForm.root);
 
     editForm = FB.PlayForm.create({
       mode: 'edit',
@@ -533,7 +539,12 @@
 
     D.show(qs('#conversion-panel'), needConv && !ui.chartingTwoPoint);
     D.show(qs('#drive-panel'), cur.needsDrive && !ui.chartingTwoPoint && !needConv);
-    D.show(qs('#entry-panel'), !cur.needsDrive || ui.chartingTwoPoint);
+
+    // The form is always on screen. Hiding it outright made a first load look
+    // like the app had failed to build it.
+    var canLog = !cur.needsDrive || ui.chartingTwoPoint;
+    D.show(qs('#entry-panel'), true);
+    entryForm.setEnabled(canLog);
 
     qs('#entry-title').textContent = ui.chartingTwoPoint ? '2-point try' : 'Log a play';
     qs('#drive-panel-title').textContent = c.drives.length ? 'Start of drive ' + (c.drives.length + 1) : 'Start of drive';
@@ -936,8 +947,9 @@
       '<h3>Keyboard</h3>',
       '<ul>',
       '<li><kbd>Tab</kbd> walks the form in the order you fill it in; <kbd>Enter</kbd> logs the play from any field.</li>',
-      '<li>On the play-type buttons: arrow keys move, or press the letter on the button (<kbd>R</kbd>un, ',
-      '<kbd>P</kbd>ass, <kbd>S</kbd>ack, penalty <kbd>F</kbd>lag, <kbd>T</kbd>urnover, safet<kbd>Y</kbd>).</li>',
+      '<li>On the play-type dropdown: arrow keys move through it, or press one letter to jump ',
+      'straight to a type &mdash; <kbd>R</kbd>un, <kbd>P</kbd>ass, <kbd>S</kbd>ack, penalty ',
+      '<kbd>F</kbd>lag, <kbd>T</kbd>urnover, safet<kbd>Y</kbd>. Then <kbd>Tab</kbd> to the number.</li>',
       '<li><kbd>Alt</kbd>+<kbd>D</kbd> start drive &middot; <kbd>Alt</kbd>+<kbd>P</kbd> punt &middot; ',
       '<kbd>Alt</kbd>+<kbd>K</kbd> kneel &middot; <kbd>Alt</kbd>+<kbd>S</kbd> spike &middot; ',
       '<kbd>Alt</kbd>+<kbd>H</kbd> end half &middot; <kbd>Alt</kbd>+<kbd>Z</kbd> undo &middot; ',
@@ -975,6 +987,24 @@
 
   /* ================= go ================= */
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  /*
+   * If start-up throws, say so on the page. Silently leaving a built-but-empty
+   * panel behind is indistinguishable from a broken app.
+   */
+  function safeBoot() {
+    try {
+      boot();
+    } catch (err) {
+      var box = document.getElementById('banners');
+      if (box) {
+        box.appendChild(el('div', { class: 'banner error' }, [
+          el('span', { text: 'The chart could not start: ' + (err && err.message ? err.message : err) })
+        ]));
+      }
+      throw err;
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', safeBoot);
+  else safeBoot();
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -15,6 +15,8 @@
   var FB = global.FB;
   var D = FB.dom, E = FB.Engine;
 
+  // key = the single keystroke that picks this option while the dropdown has
+  // focus. 'f' for the penalty Flag, since Pass already owns 'p'.
   var PLAY_TYPES = [
     { value: 'run', label: 'Run', key: 'r' },
     { value: 'pass', label: 'Pass', key: 'p' },
@@ -38,6 +40,20 @@
 
     var root = D.el('form', { class: 'pf', novalidate: true, autocomplete: 'off' });
 
+    /*
+     * Shown instead of silently hiding the whole form when there's no drive to
+     * log into. An empty panel reads as a broken app; this says what to do.
+     */
+    var lockBtn = D.el('button', { type: 'button', class: 'btn btn-primary btn-sm' }, ['Start a drive']);
+    var lock = D.el('div', { class: 'pf-lock', hidden: true }, [
+      D.el('span', { text: 'Enter the drive\u2019s starting yard line before logging plays.' }),
+      lockBtn
+    ]);
+    lockBtn.addEventListener('click', function () { if (opts.onLockedClick) opts.onLockedClick(); });
+    // Only live entry can be locked; editing an existing play always has a
+    // drive to belong to.
+    if (!isEdit) root.appendChild(lock);
+
     /* --- the four free-text fields (Phase 2 hangs autocomplete off these) --- */
     var formation = D.field({ label: 'Formation', placeholder: 'Trips Rt', enterkeyhint: 'next' });
     var backfield = D.field({ label: 'Backfield', placeholder: 'Pistol', enterkeyhint: 'next' });
@@ -57,9 +73,15 @@
     root.appendChild(spotNote);
 
     /* --- play type --- */
-    var typeSeg = D.segment({
+    /*
+     * A dropdown. Picking a type by its letter is a decision, so focus jumps
+     * straight to the number that type needs - that is the whole keyboard
+     * rhythm. Arrowing through the list is only browsing, and a closed
+     * <select> fires change on every step, so focus stays put for that.
+     */
+    var typeSeg = D.select({
       label: 'Play type', items: PLAY_TYPES, value: 'run',
-      onChange: function (v, source) { sync(); if (source !== 'arrow') focusContext(); }
+      onChange: function (v, source) { sync(); if (source === 'key') focusContext(); }
     });
     root.appendChild(D.el('div', { class: 'field pf-row-type' }, [
       D.el('span', { class: 'lbl', text: 'Play type' }), typeSeg.root
@@ -420,6 +442,19 @@
       if (!o.keepSpot) spot.input.value = '';
       api.showError(null);
       sync();
+    };
+
+    /*
+     * Locked means visible but inert: the coach can see the whole form and is
+     * told the one thing standing between them and using it.
+     */
+    api.setEnabled = function (on) {
+      lock.hidden = !!on;
+      root.classList.toggle('pf-locked', !on);
+      D.qsa('input, select, button, textarea', root).forEach(function (node) {
+        if (node === lockBtn) return;
+        node.disabled = !on;
+      });
     };
 
     api.focusFirst = function () { formation.input.focus(); };
