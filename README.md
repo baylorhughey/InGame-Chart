@@ -9,14 +9,19 @@ ends. One coach, charting alone, in real time — so the whole thing is built ar
 
 Open `index.html`. That's it.
 
-- No install, no build step, no account, no network — ever, after the first copy.
-- Runs **directly from a USB drive** (`file://`). There are no ES modules, no CDN
-  requests and no fetches of any kind, which is exactly what would break a page opened
-  off a thumb drive.
+**The whole app is that one file.** All the CSS and all the JavaScript are inlined in it —
+no `js/` folder, no `css/` folder, no external references of anything. Copy the single
+file wherever you like and it works; there is nothing beside it to lose, and copying it
+alone cannot leave you with a half-working page.
+
+- No install, no build step, no account, no network — ever. Opening the page makes exactly
+  one request: the page itself.
+- Runs **directly from a USB drive** (`file://`). No ES modules, no CDN, no fetches — the
+  things that break a page opened off a thumb drive.
 - Works in Chrome, Edge, Firefox and Safari, on a laptop or a phone.
 
-Open `tests.html` to run the self-test suite in the browser; `node js/tests.js` runs the
-same suite from a terminal.
+**Check a laptop in five seconds:** open the app, click **?**, then **Run self-test**. It
+should say *35 passed, 0 failed*. Adding `#selftest` to the address does the same thing.
 
 ### Where the data lives — read this once
 
@@ -136,25 +141,26 @@ put a wrong number on the board with no way back to it:
 - **Undo** (`Alt`+`Z`) takes back the last thing you entered. On a drive you've just started
   and not yet charted, that thing was the drive, so the drive comes back off.
 
-## Files
+## Inside the file
+
+`index.html` is one `<style>` block and one `<script>` block. The script is still organised
+in the sections it grew up as, each marked with a banner comment, in load order:
 
 ```
-index.html      the shell: status strip, entry panel, drive actions, tabs, dialogs
-tests.html      the self-test suite, in the browser
-css/app.css     one stylesheet; body.mode-desktop / body.mode-touch switch layouts
-js/engine.js    all the football logic. Pure: no DOM, no storage. The source of truth.
-js/model.js     record shapes and factories
-js/store.js     localStorage, with an in-memory fallback and no silent data loss
-js/io.js        JSON/CSV export, import, Save As
-js/app.js       state and actions — the application, shared by both input surfaces
-js/dom.js       small DOM helpers, incl. the keyboard-driven segmented control
-js/playform.js  the one play form, used by both live entry and the edit dialog
-js/ui.js        rendering, keyboard flow, dialogs, tabs
-js/tests.js     the suite itself; runs in node and in the browser
+dom.js        small DOM helpers, incl. the keyed dropdown and segmented controls
+model.js      record shapes and factories
+engine.js     all the football logic. Pure: no DOM, no storage. The source of truth.
+store.js      localStorage, with an in-memory fallback and no silent data loss
+io.js         JSON/CSV export, import, Save As
+app.js        state and actions — the application, shared by both input surfaces
+playform.js   the one play form, used by both live entry and the edit dialog
+ui.js         rendering, keyboard flow, dialogs, tabs
+tests.js      the 35-test suite, runnable from the Help dialog
 ```
 
-`engine.js` holds every rule. The two input surfaces are only input surfaces: they read
-`App.computed` and call `App` actions, and hold no state of their own.
+The `engine` section holds every rule. The two input surfaces are only input surfaces:
+they read `App.computed` and call `App` actions, and hold no state of their own. To find
+a section, search the file for its banner (`* engine.js`).
 
 ## Data model
 

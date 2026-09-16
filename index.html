@@ -5,7 +5,690 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
 <title>In-Game Chart — Offensive Play Chart</title>
-<link rel="stylesheet" href="css/app.css">
+<style>
+/*
+ * app.css — one stylesheet, two layouts.
+ *
+ * body.mode-desktop  keyboard-first: dense rows, everything reachable by Tab.
+ * body.mode-touch    touch-first: big targets, stacked, sticky action bar.
+ *
+ * High contrast on a light ground on purpose: this gets read on a sideline in
+ * daylight, where a dark UI washes out.
+ */
+
+:root {
+  --ink: #10151c;
+  --ink-2: #4a5763;
+  --ink-3: #6f7c8a;
+  --line: #c9d2da;
+  --line-2: #e3e9ee;
+  --bg: #f2f5f8;
+  --paper: #ffffff;
+  --accent: #0b4f9e;
+  --accent-ink: #ffffff;
+  --accent-soft: #e5eefb;
+  --good: #10693a;
+  --good-soft: #e2f4ea;
+  --bad: #a3231f;
+  --bad-soft: #fdeceb;
+  --warn: #8a5a00;
+  --warn-soft: #fdf3de;
+  --flag: #6b4b00;
+  --radius: 8px;
+  --tap: 44px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+/*
+ * The form shows and hides fields with the `hidden` attribute. Every explicit
+ * `display` below would otherwise beat the browser's default rule for it, so
+ * hidden has to win outright - or a hidden field stays in the Tab order.
+ */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body { padding-bottom: env(safe-area-inset-bottom); }
+
+h2 {
+  font-size: 0.78rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 0.6rem;
+  font-weight: 700;
+}
+
+code { font-family: var(--mono); font-size: 0.9em; }
+
+/* ---------------- top bar ---------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.9rem;
+  background: var(--ink);
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.brand {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-size: 0.95rem;
+}
+.brand span { color: #7fb2f0; margin-left: 0.3em; }
+
+.topbar .lbl { color: #9fb0c2; }
+.topbar select {
+  background: #1d2530;
+  color: #fff;
+  border-color: #38424f;
+}
+
+.grow { flex: 1 1 auto; }
+
+.topbar-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.scorechip {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  background: #1d2530;
+  border-radius: var(--radius);
+  padding: 0.2rem 0.65rem;
+}
+.scorechip strong { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+
+/* ---------------- banners ---------------- */
+
+.banner {
+  padding: 0.6rem 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+}
+.banner.warn { background: var(--warn-soft); color: var(--warn); }
+.banner.error { background: var(--bad-soft); color: var(--bad); }
+.banner.info { background: var(--accent-soft); color: var(--accent); }
+.banner.pending { background: var(--warn-soft); color: var(--warn); }
+
+/* ---------------- status strip ---------------- */
+
+.status {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  background: var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.status > div {
+  background: var(--paper);
+  padding: 0.5rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.status-dd { flex: 2 1 auto; }
+.status-ball { flex: 1 1 auto; }
+.status-meta {
+  flex: 1 1 auto;
+  flex-direction: row !important;
+  gap: 1.1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+.status-lbl {
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 700;
+}
+.big {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.status-meta strong { font-variant-numeric: tabular-nums; }
+
+.tag {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--line-2);
+  color: var(--ink-2);
+}
+.tag.good { background: var(--good-soft); color: var(--good); }
+.tag.bad { background: var(--bad-soft); color: var(--bad); }
+.tag.warn { background: var(--warn-soft); color: var(--warn); }
+.tag.accent { background: var(--accent-soft); color: var(--accent); }
+
+/* ---------------- layout ---------------- */
+
+main {
+  display: grid;
+  grid-template-columns: minmax(380px, 44%) 1fr;
+  gap: 0.9rem;
+  padding: 0.9rem;
+  align-items: start;
+}
+
+.col { display: flex; flex-direction: column; gap: 0.9rem; min-width: 0; }
+
+.panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.85rem;
+}
+.panel-accent { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* ---------------- form bits ---------------- */
+
+.row { display: flex; gap: 0.6rem; align-items: flex-end; }
+.row.wrap { flex-wrap: wrap; }
+.gap-top { margin-top: 0.7rem; }
+.col-buttons { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.field { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.field.grow { flex: 1 1 auto; }
+.field.inline { flex-direction: row; align-items: center; gap: 0.35rem; }
+.field .lbl {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+input[type="text"], input[type="date"], input[type="number"], select, textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.45rem 0.5rem;
+  min-height: 38px;
+  width: 100%;
+}
+input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.err {
+  color: var(--bad);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 0.35rem;
+}
+.hint { color: var(--ink-2); font-size: 0.85rem; margin: 0 0 0.6rem; }
+
+/* ---------------- buttons ---------------- */
+
+.btn {
+  font: inherit;
+  font-weight: 650;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.45rem 0.8rem;
+  min-height: 38px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--line-2); }
+.btn:active { transform: translateY(1px); }
+.btn-tall { min-height: var(--tap); padding-inline: 1rem; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-good { background: var(--good); border-color: var(--good); color: #fff; }
+.btn-bad { background: var(--bad); border-color: var(--bad); color: #fff; }
+.btn-quiet { color: var(--ink-2); background: transparent; }
+.btn-sm { min-height: 30px; padding: 0.2rem 0.5rem; font-size: 0.85rem; }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+.key {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.68em;
+  opacity: 0.72;
+  margin-left: 0.35em;
+}
+
+/* ---------------- segmented controls ---------------- */
+
+.seg { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.seg-btn {
+  font: inherit;
+  font-weight: 650;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.45rem 0.75rem;
+  min-height: 40px;
+  cursor: pointer;
+}
+.seg-btn:hover { background: var(--line-2); }
+.seg-btn[aria-checked="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.seg-sub .seg-btn { min-height: 36px; font-size: 0.92rem; }
+
+/* toggle-style checkbox rows */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  min-height: 40px;
+  font-weight: 650;
+  cursor: pointer;
+  background: var(--paper);
+  user-select: none;
+}
+.toggle input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+.toggle:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.toggle.td:has(input:checked) { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.toggle:focus-within { outline: 3px solid var(--accent); outline-offset: 1px; }
+
+/* ---------------- play form ---------------- */
+
+.pf { display: flex; flex-direction: column; gap: 0.6rem; }
+.pf-lock {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  color: var(--accent);
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+.pf-lock .btn { margin-left: auto; }
+/* Locked: visible, readable, and plainly not ready for input yet. */
+.pf-locked .pf-grid,
+.pf-locked .row,
+.pf-locked .field,
+.pf-locked .pf-context,
+.pf-locked .pf-submit { opacity: 0.55; }
+.pf-locked .pf-lock { opacity: 1; }
+.pf-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.pf-context {
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: #fbfcfd;
+}
+.pf-context:empty, .pf-context[hidden] { display: none; }
+.pf-submit { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.pf-submit .btn-primary { flex: 1 1 auto; }
+.num-field input { font-variant-numeric: tabular-nums; font-weight: 700; }
+.spot-field input {
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.pf-note { font-size: 0.8rem; color: var(--ink-3); }
+
+/* ---------------- tabs ---------------- */
+
+.tabs {
+  display: flex;
+  gap: 0.3rem;
+  border-bottom: 2px solid var(--line);
+  overflow-x: auto;
+}
+.tab {
+  font: inherit;
+  font-weight: 700;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--ink-2);
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+.tabpanels { margin-top: 0.7rem; }
+
+/* ---------------- play log ---------------- */
+
+.drive-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.6rem;
+}
+.drive-head h3 { margin: 0; font-size: 1rem; }
+.drive-head .meta { color: var(--ink-2); font-size: 0.88rem; }
+
+.conv-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.6rem;
+}
+.conv-row .meta { color: var(--warn); font-weight: 700; font-size: 0.88rem; }
+
+.playlist { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.play {
+  display: grid;
+  grid-template-columns: 2.4rem 5.4rem 4.2rem 1fr 4.5rem 2rem;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  min-height: var(--tap);
+}
+.play:hover { background: #f7fafd; }
+.play.is-pending { border-left-color: var(--warn); background: var(--warn-soft); }
+.play.is-td { border-left-color: var(--good); }
+.play.is-first { border-left-color: var(--accent); }
+.play.is-penalty { border-left-color: var(--flag); }
+.play.is-turnover { border-left-color: var(--bad); }
+.play.is-conv { border-left-color: var(--ink-3); background: #fafbfc; }
+
+.play .p-no { color: var(--ink-3); font-weight: 700; font-variant-numeric: tabular-nums; }
+.play .p-dd { font-weight: 700; font-variant-numeric: tabular-nums; }
+.play .p-spot { font-weight: 700; font-variant-numeric: tabular-nums; }
+.play .p-desc { min-width: 0; }
+.play .p-desc .call { font-weight: 650; }
+.play .p-desc .sub { color: var(--ink-2); font-size: 0.83rem; }
+.play .p-yds {
+  text-align: right;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+}
+.play .p-yds.neg { color: var(--bad); }
+.play .p-yds.pend { color: var(--warn); font-size: 0.8rem; font-weight: 700; }
+.play .p-flags { text-align: right; font-size: 0.75rem; font-weight: 800; }
+
+.drive-end {
+  text-align: center;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  padding: 0.4rem;
+}
+
+.empty {
+  color: var(--ink-3);
+  background: var(--paper);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 1.2rem;
+  text-align: center;
+}
+
+/* ---------------- tables ---------------- */
+
+.statblock { margin-bottom: 1.1rem; }
+table.stats {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+table.stats th, table.stats td {
+  padding: 0.45rem 0.6rem;
+  text-align: right;
+  border-bottom: 1px solid var(--line-2);
+  white-space: nowrap;
+}
+table.stats th:first-child, table.stats td:first-child { text-align: left; }
+table.stats thead th {
+  background: var(--line-2);
+  font-size: 0.7rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+table.stats tfoot td { font-weight: 800; background: #f7fafd; }
+table.stats tr:last-child td { border-bottom: none; }
+.table-wrap { overflow-x: auto; }
+
+/* ---------------- dialogs ---------------- */
+
+.dlg {
+  border: none;
+  border-radius: var(--radius);
+  padding: 0;
+  width: min(620px, 94vw);
+  box-shadow: 0 18px 50px rgba(16, 21, 28, 0.32);
+  color: var(--ink);
+  background: var(--paper);
+}
+.dlg-wide { width: min(860px, 94vw); }
+.dlg::backdrop { background: rgba(16, 21, 28, 0.5); }
+.dlg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+}
+.dlg-head h2 { margin: 0; font-size: 0.95rem; color: var(--ink); }
+.dlg-body { padding: 0.9rem; }
+.dlg .pf { padding: 0.9rem; }
+
+.dlg-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 0.9rem;
+  border-top: 1px solid var(--line);
+}
+.dlg-foot .hint { margin: 0; }
+.selftest-ok { color: var(--good); font-weight: 700; }
+.selftest-bad { color: var(--bad); font-weight: 700; }
+
+.help-body h3 { margin: 1.1rem 0 0.35rem; font-size: 0.95rem; }
+.help-body h3:first-child { margin-top: 0; }
+.help-body p, .help-body li { color: var(--ink-2); line-height: 1.45; }
+.help-body ul { margin: 0.3rem 0; padding-left: 1.1rem; }
+.help-body kbd {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 0.3em;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* ---------------- touch bar ---------------- */
+
+.touchbar { display: none; }
+
+/* ---------------- touch layout ---------------- */
+
+body.mode-touch { font-size: 17px; }
+body.mode-touch main { grid-template-columns: 1fr; padding: 0.6rem; gap: 0.6rem; }
+body.mode-touch .big { font-size: 2.3rem; }
+body.mode-touch .btn { min-height: var(--tap); padding: 0.55rem 0.9rem; }
+body.mode-touch .btn-sm { min-height: 36px; }
+body.mode-touch .seg-btn { min-height: 54px; flex: 1 1 30%; font-size: 1.02rem; }
+body.mode-touch .seg-sub .seg-btn { min-height: 46px; }
+body.mode-touch .toggle { min-height: 52px; flex: 1 1 45%; }
+body.mode-touch .pf-grid { grid-template-columns: 1fr; }
+
+/*
+ * Touch puts the two things a phone charter actually needs - the snap spot
+ * and the play type - at the top, and drops the optional wording fields
+ * below them. Desktop keeps DOM order, which is also its Tab order.
+ */
+body.mode-touch .pf-row-spot { order: 1; }
+body.mode-touch .pf-row-note { order: 2; }
+body.mode-touch .pf-row-type { order: 3; }
+body.mode-touch .pf-context { order: 4; }
+body.mode-touch .pf-row-td { order: 5; }
+body.mode-touch .pf-row-detail { order: 6; }
+body.mode-touch .pf-row-flags { order: 7; }
+body.mode-touch .pf-row-ov { order: 8; }
+body.mode-touch .pf-row-err { order: 9; }
+body.mode-touch .pf-submit { order: 10; }
+body.mode-touch .pf-row-detail::before {
+  content: 'Optional wording';
+  grid-column: 1 / -1;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 700;
+  border-top: 1px solid var(--line-2);
+  padding-top: 0.6rem;
+}
+body.mode-touch input[type="text"], body.mode-touch input[type="date"], body.mode-touch select {
+  min-height: 48px;
+  font-size: 1.05rem;
+}
+body.mode-touch .spot-field input { font-size: 1.5rem; }
+body.mode-touch #quick-actions .btn { flex: 1 1 45%; }
+body.mode-touch .key { display: none; }
+body.mode-touch .play { grid-template-columns: 2.2rem 1fr 4.2rem; grid-auto-rows: min-content; }
+body.mode-touch .play .p-spot { grid-column: 2; }
+body.mode-touch .play .p-flags { display: none; }
+body.mode-touch .pf-submit .btn-primary { min-height: 56px; font-size: 1.1rem; }
+body.mode-touch { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+body.mode-touch .touchbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr;
+  gap: 0.4rem;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom));
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  z-index: 30;
+}
+.tb {
+  font: inherit;
+  font-weight: 800;
+  min-height: 52px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+.tb-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tb.on { background: var(--good); border-color: var(--good); color: #fff; }
+
+/* ---------------- narrow screens ---------------- */
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+  .status { flex-wrap: wrap; }
+  .status-dd, .status-ball { flex: 1 1 45%; }
+  .status-meta { flex: 1 1 100%; }
+}
+
+/*
+ * Phone: the chrome gets out of the way. Every row the top bar takes is a row
+ * the play form loses, so the labels go, the buttons shrink, and nothing is
+ * pushed onto a line of its own.
+ */
+@media (max-width: 560px) {
+  .topbar { gap: 0.4rem; padding: 0.4rem 0.5rem; }
+  .topbar .grow { display: none; }
+  .topbar .field.inline .lbl { display: none; }
+  .topbar .btn { min-height: 34px; padding: 0.25rem 0.6rem; font-size: 0.88rem; }
+  .topbar select { min-height: 34px; padding: 0.2rem 0.4rem; font-size: 0.88rem; }
+  .topbar-actions { gap: 0.35rem; }
+  .brand { font-size: 0.8rem; }
+  .brand span { display: none; }
+  .scorechip { padding: 0.1rem 0.5rem; }
+  .scorechip strong { font-size: 1.25rem; }
+  .status > div { padding: 0.4rem 0.6rem; }
+  body.mode-touch .big, .big { font-size: 1.75rem; }
+  .play { grid-template-columns: 2.2rem 1fr 4.2rem; }
+  .play .p-flags { display: none; }
+}
+
+@media print {
+  .topbar, .tabs, .col-entry, .touchbar, #banners, .btn { display: none !important; }
+  main { grid-template-columns: 1fr; }
+  .panel, .play, table.stats { border-color: #999; }
+}
+</style>
 </head>
 <body class="mode-desktop">
 
@@ -214,6 +897,10 @@
     <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
   </form>
   <div class="dlg-body" id="help-body"></div>
+  <div class="dlg-foot">
+    <button type="button" class="btn" id="btn-selftest">Run self-test</button>
+    <span id="selftest-out" class="hint"></span>
+  </div>
 </dialog>
 
 <dialog id="game-dialog" class="dlg">
@@ -238,13 +925,3824 @@
 
 <input type="file" id="import-file" accept=".json,application/json,text/plain" hidden>
 
-<script src="js/dom.js"></script>
-<script src="js/model.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/store.js"></script>
-<script src="js/io.js"></script>
-<script src="js/app.js"></script>
-<script src="js/playform.js"></script>
-<script src="js/ui.js"></script>
+<script>
+/* ==========================================================
+ * dom.js
+ * ========================================================== */
+/* dom.js — the handful of DOM helpers the two input layers share. */
+;(function (global) {
+  'use strict';
+  var FB = global.FB = global.FB || {};
+
+  function el(tag, attrs, kids) {
+    var node = document.createElement(tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        var v = attrs[k];
+        if (v == null || v === false) return;
+        if (k === 'class') node.className = v;
+        else if (k === 'text') node.textContent = v;
+        else if (k === 'html') node.innerHTML = v;
+        else if (k === 'dataset') Object.keys(v).forEach(function (d) { node.dataset[d] = v[d]; });
+        else if (k.slice(0, 2) === 'on' && typeof v === 'function') node.addEventListener(k.slice(2), v);
+        else if (v === true) node.setAttribute(k, '');
+        else node.setAttribute(k, v);
+      });
+    }
+    (kids || []).forEach(function (kid) {
+      if (kid == null || kid === false) return;
+      node.appendChild(typeof kid === 'string' ? document.createTextNode(kid) : kid);
+    });
+    return node;
+  }
+
+  function qs(sel, root) { return (root || document).querySelector(sel); }
+  function qsa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+  function show(node, on) { if (node) node.hidden = !on; }
+
+  // A labelled text input, used everywhere.
+  function field(opts) {
+    var input = el('input', {
+      type: opts.type || 'text',
+      id: opts.id,
+      autocomplete: 'off',
+      autocapitalize: opts.autocapitalize || 'words',
+      spellcheck: 'false',
+      inputmode: opts.inputmode || null,
+      placeholder: opts.placeholder || '',
+      enterkeyhint: opts.enterkeyhint || 'done'
+    });
+    var wrap = el('label', { class: 'field ' + (opts.class || '') }, [
+      el('span', { class: 'lbl', text: opts.label }),
+      input
+    ]);
+    return { wrap: wrap, input: input };
+  }
+
+  function toggle(opts) {
+    var input = el('input', { type: 'checkbox', id: opts.id });
+    var wrap = el('label', { class: 'toggle ' + (opts.class || '') }, [input, el('span', { text: opts.label })]);
+    return { wrap: wrap, input: input };
+  }
+
+  /*
+   * A plain <select>, exposing the same {root,get,set,focus} shape as
+   * segment() so either can drive a field. Native selects already give you
+   * arrow keys and type-ahead, and Enter falls through to the form, which is
+   * what logs the play.
+   */
+  function select(opts) {
+    var sel = el('select', { 'aria-label': opts.label || '' });
+    opts.items.forEach(function (item) {
+      sel.appendChild(el('option', { value: item.value, text: item.label }));
+    });
+    sel.value = opts.value || opts.items[0].value;
+    sel.addEventListener('change', function () {
+      if (opts.onChange) opts.onChange(sel.value, 'select');
+    });
+
+    /*
+     * One keystroke per option, on top of the dropdown's own arrow keys.
+     * Native type-ahead can't do this unambiguously - "Pass" and "Penalty"
+     * share a letter - and losing a deterministic single key would cost the
+     * keyboard flow the whole point of it.
+     */
+    var keyed = opts.items.filter(function (i) { return i.key; });
+    if (keyed.length) {
+      sel.addEventListener('keydown', function (ev) {
+        if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.key.length !== 1) return;
+        var want = ev.key.toLowerCase(), hit = null;
+        keyed.forEach(function (i) { if (i.key.toLowerCase() === want) hit = i; });
+        if (!hit) return;
+        ev.preventDefault();
+        // Pressing R on a dropdown already showing Run is still a decision:
+        // it has to move the coach on to the number, not sit there.
+        var same = sel.value === hit.value;
+        if (!same) sel.value = hit.value;
+        if (opts.onChange) opts.onChange(sel.value, 'key', same);  // .value fires no change
+      });
+    }
+    return {
+      root: sel,
+      get: function () { return sel.value; },
+      set: function (v) { sel.value = v; },
+      focus: function () { sel.focus(); }
+    };
+  }
+
+  /*
+   * Segmented radio control: click, arrow keys, or the letter shown on the
+   * button. Enter is deliberately left alone so it still logs the play.
+   */
+  function segment(opts) {
+    var value = opts.value || null;
+    var buttons = [];
+    var root = el('div', {
+      class: 'seg ' + (opts.class || ''),
+      role: 'radiogroup',
+      'aria-label': opts.label || ''
+    });
+
+    opts.items.forEach(function (item) {
+      var b = el('button', {
+        type: 'button',
+        class: 'seg-btn',
+        role: 'radio',
+        'aria-checked': 'false',
+        tabindex: '-1',
+        dataset: { value: item.value, key: (item.key || '').toLowerCase() }
+      }, [
+        el('span', { text: item.label }),
+        item.key ? el('span', { class: 'key', text: item.key.toUpperCase() }) : null
+      ]);
+      b.addEventListener('click', function () { set(item.value, true, 'click'); });
+      buttons.push(b);
+      root.appendChild(b);
+    });
+
+    root.addEventListener('keydown', function (ev) {
+      var idx = buttons.indexOf(document.activeElement);
+      var move = 0;
+      if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') move = 1;
+      else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') move = -1;
+      if (move) {
+        ev.preventDefault();
+        var next = buttons[(Math.max(idx, 0) + move + buttons.length) % buttons.length];
+        // Arrowing is browsing: focus stays here so the next arrow keeps moving.
+        next.focus();
+        set(next.dataset.value, true, 'arrow');
+        return;
+      }
+      if (ev.key.length === 1 && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+        var hit = buttons.filter(function (b) { return b.dataset.key === ev.key.toLowerCase(); })[0];
+        if (hit) {
+          // A letter is a decision: focus here, then let onChange hand focus
+          // on to whatever the choice needs typed next.
+          ev.preventDefault();
+          hit.focus();
+          set(hit.dataset.value, true, 'key');
+        }
+      }
+    });
+
+    function paint() {
+      var any = false;
+      buttons.forEach(function (b) {
+        var on = b.dataset.value === value;
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;
+        if (on) any = true;
+      });
+      // Nothing chosen yet: the first button stays tabbable so Tab can reach it.
+      if (!any && buttons.length) buttons[0].tabIndex = 0;
+    }
+
+    function set(v, fire, source) {
+      var same = value === v;
+      value = v;
+      paint();
+      // Re-picking the same option still advances focus - it is a decision.
+      if (fire && opts.onChange) opts.onChange(v, source || 'set', same);
+    }
+
+    paint();
+    return {
+      root: root,
+      get: function () { return value; },
+      set: function (v) { set(v, false); },
+      focus: function () { (buttons.filter(function (b) { return b.tabIndex === 0; })[0] || buttons[0]).focus(); }
+    };
+  }
+
+  FB.dom = {
+    el: el, qs: qs, qsa: qsa, clear: clear, show: show,
+    field: field, toggle: toggle, segment: segment, select: select
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* ==========================================================
+ * model.js
+ * ========================================================== */
+/*
+ * model.js — record shapes and factories.
+ *
+ * Records are deliberately flat and boring: formation / backfield / motion /
+ * playCall are plain strings so Phase 2 can hang an autocomplete library off
+ * the same field without migrating a single stored game.
+ */
+;(function (global, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (global) { global.FB = global.FB || {}; global.FB.Model = api; }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  var SCHEMA_VERSION = 1;
+  var seq = 0;
+
+  function uid(prefix) {
+    seq += 1;
+    return (prefix || 'id') + '_' + Date.now().toString(36) + '_' +
+      seq.toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function nowIso() { return new Date().toISOString(); }
+
+  function makeGame(attrs) {
+    attrs = attrs || {};
+    return {
+      id: attrs.id || uid('g'),
+      name: attrs.name || '',
+      opponent: attrs.opponent || '',
+      date: attrs.date || nowIso().slice(0, 10),
+      createdAt: attrs.createdAt || nowIso(),
+      drives: [],
+      plays: []
+    };
+  }
+
+  function makeDrive(attrs) {
+    attrs = attrs || {};
+    return {
+      id: attrs.id || uid('d'),
+      gameId: attrs.gameId || null,
+      startSpot: attrs.startSpot,
+      startedAt: attrs.startedAt || nowIso(),
+      note: attrs.note || '',
+      manualEnd: attrs.manualEnd || null,  // {reason:'punt'|'missed-fg'|'half'|'game'|'other', at}
+      conversionSkipped: !!attrs.conversionSkipped
+    };
+  }
+
+  /*
+   * One charted snap. `kind` is 'snap' for everything a play clock runs on,
+   * and 'pat' for a kicked extra point (Good / No Good is the whole entry).
+   * A 2-point try is a normal snap record with isTwoPoint set: charted the
+   * same way, excluded from down & distance and from the box score.
+   */
+  function makePlay(attrs) {
+    attrs = attrs || {};
+    var p = {
+      id: attrs.id || uid('p'),
+      gameId: attrs.gameId || null,
+      driveId: attrs.driveId || null,
+      kind: attrs.kind || 'snap',
+      ts: attrs.ts || nowIso(),
+
+      spot: attrs.spot == null ? null : Number(attrs.spot),
+
+      formation: attrs.formation || '',
+      backfield: attrs.backfield || '',
+      motion: attrs.motion || '',
+      playCall: attrs.playCall || '',
+
+      playType: attrs.playType || 'run',     // run | pass | sack | penalty | safety
+      passOutcome: attrs.passOutcome || null,// complete | incomplete | scramble | intercepted
+
+      carrier: attrs.carrier == null ? '' : String(attrs.carrier),
+      qb: attrs.qb == null ? '' : String(attrs.qb),
+      receiver: attrs.receiver == null ? '' : String(attrs.receiver),
+
+      td: !!attrs.td,
+      turnover: attrs.turnover || null,      // null | 'fumble' | 'interception'
+      isKneel: !!attrs.isKneel,
+      isSpike: !!attrs.isSpike,
+      isTwoPoint: !!attrs.isTwoPoint,
+
+      penalty: attrs.penalty ? makePenalty(attrs.penalty) : null,
+
+      endSpot: attrs.endSpot == null ? null : Number(attrs.endSpot),
+      overrides: attrs.overrides || {},
+      edited: !!attrs.edited,
+
+      // Snapshots written back by the engine so exports carry them. The play
+      // log is still the source of truth - these are never read back in.
+      down: attrs.down == null ? null : attrs.down,
+      distance: attrs.distance == null ? null : attrs.distance,
+      yards: attrs.yards == null ? null : attrs.yards,
+
+      patGood: !!attrs.patGood
+    };
+    return p;
+  }
+
+  function makePenalty(attrs) {
+    attrs = attrs || {};
+    return {
+      on: attrs.on === 'them' ? 'them' : 'us',
+      yards: Number(attrs.yards) || 0,
+      autoFirst: !!attrs.autoFirst,
+      beyondLOS: !!attrs.beyondLOS,
+      underlyingType: attrs.underlyingType || 'none',  // none | run | pass
+      creditedYards: Number(attrs.creditedYards) || 0
+    };
+  }
+
+  function makePat(attrs) {
+    attrs = attrs || {};
+    return makePlay({
+      id: attrs.id,
+      gameId: attrs.gameId,
+      driveId: attrs.driveId,
+      kind: 'pat',
+      patGood: !!attrs.good,
+      playType: 'pat'
+    });
+  }
+
+  function emptyDb() {
+    return { version: SCHEMA_VERSION, activeGameId: null, games: [] };
+  }
+
+  // Accepts anything that looks like our export and fills in missing fields,
+  // so an older or hand-edited file still imports.
+  function normalizeDb(raw) {
+    var db = emptyDb();
+    if (!raw || typeof raw !== 'object') return db;
+    db.version = SCHEMA_VERSION;
+    db.activeGameId = raw.activeGameId || null;
+    var games = Array.isArray(raw.games) ? raw.games : [];
+    db.games = games.map(function (g) {
+      var game = makeGame(g);
+      game.drives = (g.drives || []).map(function (d) {
+        var drive = makeDrive(d);
+        drive.gameId = game.id;
+        return drive;
+      });
+      game.plays = (g.plays || []).map(function (p) {
+        var play = makePlay(p);
+        play.gameId = game.id;
+        return play;
+      });
+      return game;
+    });
+    if (!db.games.some(function (g) { return g.id === db.activeGameId; })) {
+      db.activeGameId = db.games.length ? db.games[db.games.length - 1].id : null;
+    }
+    return db;
+  }
+
+  return {
+    SCHEMA_VERSION: SCHEMA_VERSION,
+    uid: uid,
+    nowIso: nowIso,
+    makeGame: makeGame,
+    makeDrive: makeDrive,
+    makePlay: makePlay,
+    makePenalty: makePenalty,
+    makePat: makePat,
+    emptyDb: emptyDb,
+    normalizeDb: normalizeDb
+  };
+});
+
+/* ==========================================================
+ * engine.js
+ * ========================================================== */
+/*
+ * engine.js — pure logic for the offensive chart.
+ *
+ * No DOM, no storage, no globals beyond FB.Engine. Everything the app shows
+ * (down, distance, yards, box score, team score) is DERIVED from the play log
+ * by the functions in this file, so a correction anywhere ripples forward for
+ * free. Loaded as a classic script (no modules) so index.html works from
+ * file:// on a USB drive; also loadable in node for the test suite.
+ */
+;(function (global, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (global) { global.FB = global.FB || {}; global.FB.Engine = api; }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  /* ---------------------------------------------------------------- *
+   * Field position
+   *
+   * The coach writes a signed yard line, exactly like the paper chart:
+   *   -13  = our own 13        (negative: our side, from OUR goal line)
+   *   +35  = their 35          (positive: their side, from THEIR goal line)
+   * Internally everything is a single 0-100 scale measuring how far the ball
+   * has travelled from our own goal line, so yardage is plain subtraction.
+   * ---------------------------------------------------------------- */
+
+  function fieldPos(v) { return v < 0 ? -v : (100 - v); }
+
+  // Inverse of fieldPos. 50 comes back as -50 (midfield, displayed as "50").
+  function toSigned(fp) { return fp <= 50 ? -fp : (100 - fp); }
+
+  function round1(n) { return Math.round(n * 10) / 10; }
+
+  function num(n) {
+    var r = round1(n);
+    return (Math.abs(r % 1) < 1e-9) ? String(Math.round(r)) : String(r);
+  }
+
+  // Display form of a signed yard line: "-13", "+35", "50", "GL", "END ZONE".
+  function formatSpot(v) {
+    if (v == null || isNaN(v)) return '--';
+    var fp = fieldPos(v);
+    if (fp >= 100) return 'THEIR GL';
+    if (fp <= 0) return 'OUR GL';
+    if (Math.abs(v) === 50) return '50';
+    return (v < 0 ? '-' : '+') + num(Math.abs(v));
+  }
+
+  /*
+   * Accepts what a coach would actually type:
+   *   -13  13-  o13  own13   -> our side
+   *   +35  35+  t35  opp35   -> their side
+   *   50                     -> midfield
+   * A bare number other than 50 is rejected on purpose: guessing the side
+   * would silently corrupt every yardage number downstream.
+   */
+  function parseSpot(text) {
+    if (text == null) return { ok: false, error: 'Enter a yard line' };
+    var s = String(text).trim().toLowerCase().replace(/\s+/g, '');
+    if (!s) return { ok: false, error: 'Enter a yard line' };
+
+    var side = 0; // -1 ours, +1 theirs
+    var m;
+    if ((m = s.match(/^(?:-|own|o)(\d+(?:\.\d+)?)$/))) { side = -1; s = m[1]; }
+    else if ((m = s.match(/^(?:\+|opp|their|them|t)(\d+(?:\.\d+)?)$/))) { side = 1; s = m[1]; }
+    else if ((m = s.match(/^(\d+(?:\.\d+)?)-$/))) { side = -1; s = m[1]; }
+    else if ((m = s.match(/^(\d+(?:\.\d+)?)\+$/))) { side = 1; s = m[1]; }
+    else if ((m = s.match(/^(\d+(?:\.\d+)?)$/))) { s = m[1]; }
+    else return { ok: false, error: 'Use -13 (ours) or +35 (theirs)' };
+
+    var n = parseFloat(s);
+    if (isNaN(n)) return { ok: false, error: 'Use -13 (ours) or +35 (theirs)' };
+    if (n < 0 || n > 50) return { ok: false, error: 'Yard line must be 0-50' };
+    if (side === 0) {
+      if (n === 50) return { ok: true, value: -50 };
+      return { ok: false, error: 'Add - (ours) or + (theirs)' };
+    }
+    return { ok: true, value: side * n };
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Penalties: half the distance to the goal, enforced automatically.
+   * ---------------------------------------------------------------- */
+
+  // enfFp: field position the penalty is walked off from.
+  // on: 'us' (ball moves toward our goal) | 'them' (toward their goal).
+  function penaltyDelta(enfFp, on, yards) {
+    var y = Math.abs(Number(yards) || 0);
+    var toward = (on === 'us') ? -1 : 1;
+    var remaining = (on === 'us') ? enfFp : (100 - enfFp);
+    var half = remaining / 2;
+    var capped = y > half ? half : y;
+    return { delta: round1(toward * capped), yards: round1(capped), halved: y > half };
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Play helpers
+   * ---------------------------------------------------------------- */
+
+  function isConversion(p) { return p.kind === 'pat' || p.isTwoPoint === true; }
+  function isSnap(p) { return p.kind !== 'pat'; }
+
+  // Plays that count toward down & distance and the box score.
+  function isLive(p) { return isSnap(p) && !p.isTwoPoint; }
+
+  function penaltyOf(p) { return (p.playType === 'penalty' && p.penalty) ? p.penalty : null; }
+
+  // A standalone (line-of-scrimmage) penalty wipes the play and repeats the
+  // down. A "beyond the line of scrimmage" penalty has a real play under it,
+  // so that play consumed the down and kept its stats.
+  function isStandalonePenalty(p) {
+    var pen = penaltyOf(p);
+    return !!pen && !pen.beyondLOS;
+  }
+
+  function endsDriveReason(p) {
+    if (p.playType === 'safety') return 'safety';
+    if (p.turnover === 'fumble') return 'fumble';
+    if (p.turnover === 'interception') return 'interception';
+    if (p.td) return 'td';
+    return null;
+  }
+
+  /*
+   * Resolve one play's yardage.
+   *
+   * Order of precedence:
+   *   1. overrides.yards   - the coach typed a yardage by hand; never clobbered
+   *   2. endSpot           - "resolve last play" with a final yard line
+   *   3. TD                - endpoint is known: 100 - fieldPos(snap)
+   *   4. immediate zeros   - incomplete / spike / interception
+   *   5. penalty math      - self-resolving from the stated yardage
+   *   6. next play's snap spot in this drive
+   *   7. pending
+   */
+  function resolvePlay(p, nextPlay) {
+    var snapFp = fieldPos(p.spot);
+    var ov = p.overrides || {};
+    var pen = penaltyOf(p);
+    var out = {
+      snapFp: snapFp, endFp: null, yards: null, statYards: 0,
+      pending: false, halved: false, penaltyYards: 0
+    };
+
+    var ovYards = optNum(ov.yards);
+    if (ovYards != null) {
+      out.yards = round1(ovYards);
+      out.endFp = clampFp(snapFp + out.yards);
+      out.statYards = pen ? (pen.beyondLOS ? creditedYards(p) : 0) : out.yards;
+      return out;
+    }
+
+    if (pen) {
+      // Beyond the LOS: the underlying play happened, so credited yards move
+      // the ball first and the flag is walked off from there.
+      var credited = pen.beyondLOS ? creditedYards(p) : 0;
+      var enfFp = clampFp(snapFp + credited);
+      var d = penaltyDelta(enfFp, pen.on, pen.yards);
+      out.penaltyYards = d.delta;
+      out.halved = d.halved;
+      out.endFp = clampFp(enfFp + d.delta);
+      out.yards = round1(out.endFp - snapFp);
+      out.statYards = pen.beyondLOS ? credited : 0;
+      return out;
+    }
+
+    if (p.playType === 'safety') {
+      out.endFp = 0;
+      out.yards = round1(0 - snapFp);
+      out.statYards = out.yards;
+      return out;
+    }
+
+    if (p.td) {
+      out.endFp = 100;
+      out.yards = round1(100 - snapFp);
+      out.statYards = out.yards;
+      return out;
+    }
+
+    if (p.endSpot != null) {
+      out.endFp = clampFp(fieldPos(p.endSpot));
+      out.yards = round1(out.endFp - snapFp);
+      out.statYards = out.yards;
+      return out;
+    }
+
+    if (p.playType === 'pass' &&
+        (p.passOutcome === 'incomplete' || p.passOutcome === 'intercepted')) {
+      out.endFp = snapFp;
+      out.yards = 0;
+      return out;
+    }
+
+    // Run / complete pass / scramble / sack / kneel: pending until the next
+    // snap spot in this drive tells us where the ball ended up.
+    if (nextPlay) {
+      out.endFp = clampFp(fieldPos(nextPlay.spot));
+      out.yards = round1(out.endFp - snapFp);
+      out.statYards = out.yards;
+      return out;
+    }
+
+    out.pending = true;
+    return out;
+  }
+
+  // Overrides can arrive from an imported or hand-edited file, where a junk
+  // value would otherwise turn every number after it into NaN.
+  function optNum(v) {
+    if (v == null || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  function creditedYards(p) {
+    var pen = penaltyOf(p);
+    if (!pen) return 0;
+    var v = Number(pen.creditedYards);
+    return isNaN(v) ? 0 : round1(v);
+  }
+
+  function clampFp(fp) { return fp < 0 ? 0 : (fp > 100 ? 100 : round1(fp)); }
+
+  /* ---------------------------------------------------------------- *
+   * Drive walk: down & distance, drive result.
+   * ---------------------------------------------------------------- */
+
+  /*
+   * plays: every play charted in this drive, in order (PATs and 2-point
+   * tries are filtered out here - they never touch down & distance).
+   *
+   * lineToGain is carried as a field position and capped at 100, which is all
+   * goal-to-go is: the marker can't be past the goal line.
+   */
+  function computeDrive(drive, allPlays) {
+    var plays = allPlays.filter(isLive);
+    var startFp = clampFp(fieldPos(drive.startSpot));
+    var down = 1;
+    var ltg = Math.min(startFp + 10, 100);
+    var ballFp = startFp;
+    var ended = null;      // reason the drive ended
+    var endedByPlayId = null;
+    var pending = false;
+    var rows = [];
+
+    for (var i = 0; i < plays.length; i++) {
+      var p = plays[i];
+      var next = plays[i + 1] || null;
+      var ov = p.overrides || {};
+      var snapFp = clampFp(fieldPos(p.spot));
+
+      // Hand-corrected down/distance are respected, and the auto-logic picks
+      // back up from whatever the coach entered.
+      var ovDown = optNum(ov.down);
+      var ovDist = optNum(ov.distance);
+      if (ovDown != null) down = Math.max(1, Math.min(4, ovDown));
+      if (ovDist != null) ltg = Math.min(snapFp + ovDist, 100);
+
+      var dist = round1(ltg - snapFp);
+      if (dist < 0) dist = 0;
+      var goalToGo = ltg >= 100;
+
+      var r = resolvePlay(p, next);
+      var row = {
+        id: p.id,
+        index: i,
+        down: down,
+        distance: dist,
+        goalToGo: goalToGo,
+        spot: p.spot,
+        snapFp: snapFp,
+        endFp: r.endFp,
+        yards: r.yards,
+        statYards: r.statYards,
+        pending: r.pending,
+        halved: r.halved,
+        penaltyYards: r.penaltyYards,
+        firstDown: false,
+        driveEnd: null
+      };
+
+      if (r.pending) {
+        pending = true;
+        rows.push(row);
+        ballFp = snapFp;
+        break; // nothing downstream can be known yet
+      }
+
+      ballFp = r.endFp;
+      var reason = endsDriveReason(p);
+
+      if (reason) {
+        row.driveEnd = reason;
+        if (!ended) { ended = reason; endedByPlayId = p.id; }
+      } else {
+        var pen = penaltyOf(p);
+        var autoFirst = !!(pen && pen.autoFirst);
+        if (autoFirst || ballFp >= ltg) {
+          row.firstDown = true;
+          down = 1;
+          ltg = Math.min(ballFp + 10, 100);
+        } else if (isStandalonePenalty(p)) {
+          // Repeats the down. The marker doesn't move - only the ball does.
+        } else {
+          down += 1;
+          if (down > 4) {
+            row.driveEnd = 'downs';
+            if (!ended) { ended = 'downs'; endedByPlayId = p.id; }
+            down = 4;
+          }
+        }
+      }
+
+      rows.push(row);
+    }
+
+    // A manual end (punt, missed FG, clock) only counts if no play already
+    // ended the drive.
+    if (!ended && drive.manualEnd) ended = drive.manualEnd.reason;
+
+    // Only the last conversion on a drive counts. Entering one again corrects
+    // the first rather than scoring twice.
+    var conversions = allPlays.filter(isConversion);
+    var points = 0;
+    var conv = null;
+    if (conversions.length) {
+      var cp = conversions[conversions.length - 1];
+      if (cp.kind === 'pat') { conv = { type: 'kick', good: !!cp.patGood, id: cp.id }; if (cp.patGood) points += 1; }
+      else { conv = { type: 'two', good: !!cp.td, id: cp.id }; if (cp.td) points += 2; }
+    }
+    if (ended === 'td') points += 6;
+
+    var net = 0, live = 0;
+    for (var k = 0; k < rows.length; k++) {
+      if (rows[k].yards != null) net = round1(net + rows[k].yards);
+      live++;
+    }
+
+    return {
+      drive: drive,
+      rows: rows,
+      startFp: startFp,
+      ballFp: ballFp,
+      down: down,
+      lineToGain: ltg,
+      distance: Math.max(0, round1(ltg - ballFp)),
+      goalToGo: ltg >= 100,
+      pending: pending,
+      ended: ended,
+      endedByPlayId: endedByPlayId,
+      // A scored TD whose extra point was never recorded. Stays true after a
+      // skip so the drive review can still offer it - a point that never got
+      // entered is otherwise lost for good.
+      needsConversion: ended === 'td' && !conv,
+      conversionSkipped: !!drive.conversionSkipped,
+      conversion: conv,
+      points: points,
+      netYards: net,
+      playCount: live
+    };
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Box score
+   * ---------------------------------------------------------------- */
+
+  function blankPass() { return { att: 0, comp: 0, yards: 0, td: 0, int: 0, sacks: 0 }; }
+  function blankRush() { return { carries: 0, yards: 0, td: 0 }; }
+  function blankRec() { return { rec: 0, yards: 0, td: 0 }; }
+
+  function bucket(map, numText, blank) {
+    var key = String(numText == null ? '' : numText).trim();
+    if (!key) return null;           // no jersey number, nobody to credit
+    if (!map[key]) map[key] = blank();
+    return map[key];
+  }
+
+  /*
+   * Credits one resolved play to the right players.
+   *
+   * Conventions (high-school / NCAA style, which is what a sideline chart
+   * is keeping):
+   *  - a sack is a rush attempt for the QB at a loss, plus a sack in the
+   *    passing line; it is NOT a pass attempt. Intentional grounding is
+   *    charted as a sack for exactly this reason.
+   *  - a scramble counts as a rush for the QB, not a pass attempt.
+   *  - a play wiped by a line-of-scrimmage penalty credits nobody.
+   *  - a 2-point try never touches the box score.
+   */
+  function creditPlay(box, p, row) {
+    if (!isLive(p) || !row || row.pending) return;
+    var pen = penaltyOf(p);
+    if (pen && !pen.beyondLOS) return;            // stats wiped
+
+    var yards = row.statYards || 0;
+    var td = !!p.td;
+    var type = p.playType;
+    var outcome = p.passOutcome;
+
+    if (pen) {                                     // beyond the LOS
+      type = (pen.underlyingType === 'pass') ? 'pass' : (pen.underlyingType === 'run' ? 'run' : null);
+      if (!type) return;
+      if (type === 'pass' && !outcome) outcome = 'complete';
+    }
+
+    if (type === 'safety') {
+      var sc = bucket(box.rushing, p.carrier, blankRush);
+      if (sc) { sc.carries += 1; sc.yards = round1(sc.yards + yards); }
+      return;
+    }
+
+    if (type === 'run') {
+      var r = bucket(box.rushing, p.carrier, blankRush);
+      if (r) { r.carries += 1; r.yards = round1(r.yards + yards); if (td) r.td += 1; }
+      return;
+    }
+
+    if (type === 'sack') {
+      var sq = bucket(box.passing, p.qb, blankPass);
+      if (sq) sq.sacks += 1;
+      var sr = bucket(box.rushing, p.qb, blankRush);
+      if (sr) { sr.carries += 1; sr.yards = round1(sr.yards + yards); }
+      return;
+    }
+
+    if (type === 'pass') {
+      if (outcome === 'scramble') {
+        var sc2 = bucket(box.rushing, p.qb, blankRush);
+        if (sc2) { sc2.carries += 1; sc2.yards = round1(sc2.yards + yards); if (td) sc2.td += 1; }
+        return;
+      }
+      var q = bucket(box.passing, p.qb, blankPass);
+      if (q) {
+        q.att += 1;
+        if (outcome === 'complete') {
+          q.comp += 1;
+          q.yards = round1(q.yards + yards);
+          if (td) q.td += 1;
+        } else if (outcome === 'intercepted') {
+          q.int += 1;
+        }
+      }
+      if (outcome === 'complete') {
+        var w = bucket(box.receiving, p.receiver, blankRec);
+        if (w) { w.rec += 1; w.yards = round1(w.yards + yards); if (td) w.td += 1; }
+      }
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Whole-game computation - the one function the UI calls.
+   * ---------------------------------------------------------------- */
+
+  function computeGame(game) {
+    var drives = [];
+    var rowsById = {};
+    var box = { passing: {}, rushing: {}, receiving: {} };
+    var score = 0;
+    var playsByDrive = {};
+
+    (game.plays || []).forEach(function (p) {
+      (playsByDrive[p.driveId] = playsByDrive[p.driveId] || []).push(p);
+    });
+
+    (game.drives || []).forEach(function (drive) {
+      var d = computeDrive(drive, playsByDrive[drive.id] || []);
+      d.rows.forEach(function (row) { rowsById[row.id] = row; });
+      score += d.points;
+      drives.push(d);
+    });
+
+    (game.plays || []).forEach(function (p) { creditPlay(box, p, rowsById[p.id]); });
+
+    var last = drives.length ? drives[drives.length - 1] : null;
+    var current = {
+      driveIndex: drives.length - 1,
+      drive: last ? last.drive : null,
+      down: last ? last.down : 1,
+      distance: last ? last.distance : 10,
+      goalToGo: last ? last.goalToGo : false,
+      ballFp: last ? last.ballFp : null,
+      ballSpot: last ? toSigned(last.ballFp) : null,
+      pending: last ? last.pending : false,
+      driveEnded: last ? last.ended : null,
+      needsDrive: !last || !!last.ended,
+      needsConversion: last ? (last.needsConversion && !last.conversionSkipped) : false,
+      // What the next snap spot almost certainly is. Blank while pending.
+      nextSpot: (last && !last.pending && !last.ended) ? toSigned(last.ballFp) : null
+    };
+
+    return {
+      drives: drives,
+      rows: rowsById,
+      box: box,
+      score: score,
+      current: current,
+      totals: totals(game, rowsById, drives)
+    };
+  }
+
+  function totals(game, rows, drives) {
+    var t = { plays: 0, yards: 0, firstDowns: 0, drives: drives.length, touchdowns: 0 };
+    (game.plays || []).forEach(function (p) {
+      var row = rows[p.id];
+      if (!row || !isLive(p)) return;
+      t.plays += 1;
+      if (row.yards != null) t.yards = round1(t.yards + row.yards);
+      if (row.firstDown) t.firstDowns += 1;
+      if (p.td) t.touchdowns += 1;
+    });
+    return t;
+  }
+
+  function formatDownDistance(down, distance, goalToGo) {
+    var ord = ['', '1st', '2nd', '3rd', '4th'][down] || String(down);
+    if (goalToGo) return ord + ' & Goal';
+    return ord + ' & ' + num(distance);
+  }
+
+  return {
+    fieldPos: fieldPos,
+    toSigned: toSigned,
+    formatSpot: formatSpot,
+    parseSpot: parseSpot,
+    penaltyDelta: penaltyDelta,
+    resolvePlay: resolvePlay,
+    computeDrive: computeDrive,
+    computeGame: computeGame,
+    creditPlay: creditPlay,
+    formatDownDistance: formatDownDistance,
+    isLive: isLive,
+    isConversion: isConversion,
+    penaltyOf: penaltyOf,
+    num: num,
+    round1: round1
+  };
+});
+
+/* ==========================================================
+ * store.js
+ * ========================================================== */
+/*
+ * store.js — local persistence.
+ *
+ * localStorage only: no network, no accounts, nothing to install. When the
+ * app runs from a USB drive the browser still keeps this data per-machine,
+ * which is exactly why Export/Import exists - see io.js.
+ *
+ * Some browsers refuse storage for file:// pages. That is not fatal here: the
+ * app keeps running from memory and the UI shows a warning telling the coach
+ * to export before closing the tab.
+ */
+;(function (global, factory) {
+  var api = factory(global);
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (global) { global.FB = global.FB || {}; global.FB.Store = api; }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (global) {
+  'use strict';
+
+  var KEY = 'ingame-chart.db.v1';
+  var Model = global && global.FB ? global.FB.Model : require('./model.js');
+
+  var state = { persistent: true, lastError: null };
+  var memory = null;
+  var saveTimer = null;
+
+  function backend() {
+    try {
+      if (!global.localStorage) return null;
+      // Probe: Safari in private mode throws only on write.
+      global.localStorage.setItem(KEY + '.probe', '1');
+      global.localStorage.removeItem(KEY + '.probe');
+      return global.localStorage;
+    } catch (err) {
+      state.persistent = false;
+      state.lastError = err && err.message ? err.message : String(err);
+      return null;
+    }
+  }
+
+  function load() {
+    var ls = backend();
+    if (!ls) return memory || (memory = Model.emptyDb());
+    var raw = null;
+    try { raw = ls.getItem(KEY); } catch (err) { state.persistent = false; }
+    if (!raw) return Model.emptyDb();
+    try {
+      return Model.normalizeDb(JSON.parse(raw));
+    } catch (err) {
+      // Never lose a game to a parse error: keep the bad text aside so it can
+      // still be recovered by hand, and start clean.
+      try { ls.setItem(KEY + '.corrupt.' + Date.now(), raw); } catch (e) {}
+      state.lastError = 'Saved data was unreadable and has been set aside.';
+      return Model.emptyDb();
+    }
+  }
+
+  function saveNow(db) {
+    memory = db;
+    var ls = backend();
+    if (!ls) return false;
+    try {
+      ls.setItem(KEY, JSON.stringify(db));
+      state.persistent = true;
+      return true;
+    } catch (err) {
+      state.persistent = false;
+      state.lastError = (err && err.name === 'QuotaExceededError')
+        ? 'Storage is full. Export your data.'
+        : 'This browser will not save data for a local file. Export before closing.';
+      return false;
+    }
+  }
+
+  // Logging a play should never wait on a disk write.
+  function save(db) {
+    memory = db;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { saveTimer = null; saveNow(db); }, 120);
+  }
+
+  function flush(db) {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    return saveNow(db || memory);
+  }
+
+  return { KEY: KEY, load: load, save: save, flush: flush, saveNow: saveNow, state: state };
+});
+
+/* ==========================================================
+ * io.js
+ * ========================================================== */
+/*
+ * io.js — export and import.
+ *
+ * Export is one click and goes through a real "Save As" dialog wherever the
+ * browser offers one, so the file can land on the same USB drive the app is
+ * running from. Import reads a file the coach picks - no server anywhere.
+ */
+;(function (global, factory) {
+  var api = factory(global);
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (global) { global.FB = global.FB || {}; global.FB.IO = api; }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (global) {
+  'use strict';
+
+  var E = global && global.FB ? global.FB.Engine : require('./engine.js');
+  var M = global && global.FB ? global.FB.Model : require('./model.js');
+
+  function stamp(d) {
+    d = d || new Date();
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+      '_' + p(d.getHours()) + p(d.getMinutes());
+  }
+
+  function slug(s) {
+    return String(s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '').slice(0, 40);
+  }
+
+  /* ---------------- JSON ---------------- */
+
+  function exportJson(db) {
+    return JSON.stringify({
+      app: 'ingame-chart',
+      version: M.SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      activeGameId: db.activeGameId,
+      games: db.games
+    }, null, 2);
+  }
+
+  /*
+   * mode 'merge'  - games in the file replace same-id games, new ones are added
+   * mode 'replace'- the file becomes the whole database
+   */
+  function importJson(currentDb, text, mode) {
+    var parsed = JSON.parse(text);
+    var incoming = M.normalizeDb(parsed);
+    if (!incoming.games.length) throw new Error('No games found in that file.');
+    if (mode === 'replace') return { db: incoming, added: incoming.games.length, updated: 0 };
+
+    var db = M.normalizeDb(currentDb);
+    var byId = {};
+    db.games.forEach(function (g, i) { byId[g.id] = i; });
+    var added = 0, updated = 0;
+    incoming.games.forEach(function (g) {
+      if (byId[g.id] != null) { db.games[byId[g.id]] = g; updated++; }
+      else { db.games.push(g); added++; }
+    });
+    db.activeGameId = incoming.activeGameId || db.activeGameId;
+    if (!db.games.some(function (g) { return g.id === db.activeGameId; })) {
+      db.activeGameId = db.games[db.games.length - 1].id;
+    }
+    return { db: db, added: added, updated: updated };
+  }
+
+  /* ---------------- CSV ---------------- */
+
+  function csvCell(v) {
+    var s = (v == null) ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function csvRows(rows) {
+    return rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n') + '\r\n';
+  }
+
+  function detailOf(p) {
+    var bits = [];
+    if (p.kind === 'pat') return p.patGood ? 'PAT good' : 'PAT no good';
+    if (p.playType === 'pass' && p.passOutcome) bits.push(p.passOutcome);
+    if (p.isSpike) bits.push('spike');
+    if (p.isKneel) bits.push('kneel');
+    var pen = E.penaltyOf(p);
+    if (pen) {
+      bits.push('on ' + (pen.on === 'us' ? 'us' : 'them') + ' ' + pen.yards + 'yd');
+      if (pen.autoFirst) bits.push('auto 1st');
+      if (pen.beyondLOS) bits.push('beyond LOS (' + pen.underlyingType + ', ' + pen.creditedYards + 'yd credited)');
+    }
+    if (p.turnover) bits.push(p.turnover);
+    if (p.isTwoPoint) bits.push('2-pt try');
+    return bits.join('; ');
+  }
+
+  // The paper chart's columns, plus what the engine derived.
+  function playsCsv(game, computed) {
+    var head = ['Drive', 'Play #', 'Down', 'Dist', 'Yard Line', 'Formation', 'Backfield',
+      'Motion', 'Play', 'Type', 'Detail', 'Carrier', 'QB', 'Receiver', 'Yards', 'TD',
+      'Result', 'Timestamp'];
+    var rows = [head];
+    var driveNo = {};
+    (game.drives || []).forEach(function (d, i) { driveNo[d.id] = i + 1; });
+    var counter = 0;
+    (game.plays || []).forEach(function (p) {
+      var row = computed.rows[p.id];
+      if (p.kind !== 'pat') counter++;
+      rows.push([
+        driveNo[p.driveId] || '',
+        p.kind === 'pat' ? '' : counter,
+        row ? row.down : '',
+        row ? (row.goalToGo ? 'Goal' : E.num(row.distance)) : '',
+        p.kind === 'pat' ? '' : E.formatSpot(p.spot),
+        p.formation, p.backfield, p.motion, p.playCall,
+        p.kind === 'pat' ? 'PAT' : p.playType,
+        detailOf(p),
+        p.carrier, p.qb, p.receiver,
+        row ? (row.pending ? 'pending' : E.num(row.yards)) : '',
+        p.td ? 'TD' : '',
+        row && row.driveEnd ? row.driveEnd : '',
+        p.ts
+      ]);
+    });
+    return csvRows(rows);
+  }
+
+  function boxCsv(game, computed) {
+    var rows = [];
+    var box = computed.box;
+    rows.push(['Game', game.name || '(unnamed)', 'vs', game.opponent || '', game.date]);
+    rows.push(['Our score', computed.score]);
+    rows.push([]);
+    rows.push(['PASSING', 'Comp', 'Att', 'Yards', 'TD', 'INT', 'Sacks']);
+    Object.keys(box.passing).sort(byNumber).forEach(function (n) {
+      var s = box.passing[n];
+      rows.push(['#' + n, s.comp, s.att, E.num(s.yards), s.td, s.int, s.sacks]);
+    });
+    rows.push([]);
+    rows.push(['RUSHING', 'Carries', 'Yards', 'TD', 'Avg']);
+    Object.keys(box.rushing).sort(byNumber).forEach(function (n) {
+      var s = box.rushing[n];
+      rows.push(['#' + n, s.carries, E.num(s.yards), s.td, s.carries ? E.num(s.yards / s.carries) : '']);
+    });
+    rows.push([]);
+    rows.push(['RECEIVING', 'Rec', 'Yards', 'TD', 'Avg']);
+    Object.keys(box.receiving).sort(byNumber).forEach(function (n) {
+      var s = box.receiving[n];
+      rows.push(['#' + n, s.rec, E.num(s.yards), s.td, s.rec ? E.num(s.yards / s.rec) : '']);
+    });
+    rows.push([]);
+    rows.push(['TEAM', 'Plays', 'Yards', 'First downs', 'Drives', 'TDs']);
+    rows.push(['', computed.totals.plays, E.num(computed.totals.yards), computed.totals.firstDowns,
+      computed.totals.drives, computed.totals.touchdowns]);
+    return csvRows(rows);
+  }
+
+  function filename(kind, game) {
+    var base = 'ingame-chart';
+    if (game) {
+      var s = slug(game.name || game.opponent);
+      if (s) base += '_' + s;
+    }
+    return base + '_' + kind + '_' + stamp() + (kind === 'data' ? '.json' : '.csv');
+  }
+
+  /* ---------------- saving a file ---------------- */
+
+  /*
+   * Prefer the real Save As dialog (File System Access API). Browsers that
+   * don't offer it - or block it for file:// pages - fall back to a download,
+   * which still lands in the browser's save flow.
+   */
+  function saveFile(name, text, mime, opts) {
+    opts = opts || {};
+    var types = [{
+      description: mime === 'application/json' ? 'JSON file' : 'CSV file',
+      accept: {}
+    }];
+    types[0].accept[mime] = [name.slice(name.lastIndexOf('.'))];
+
+    if (global.showSaveFilePicker && !opts.forceDownload) {
+      return global.showSaveFilePicker({ suggestedName: name, types: types })
+        .then(function (handle) { return handle.createWritable(); })
+        .then(function (w) { return w.write(text).then(function () { return w.close(); }); })
+        .then(function () { return { ok: true, how: 'picker', name: name }; })
+        .catch(function (err) {
+          // Only a cancelled dialog reports AbortError. Anything else means
+          // this browser won't do Save As here, so fall back rather than
+          // leave the coach with no file.
+          if (err && err.name === 'AbortError') {
+            return { ok: false, cancelled: true, name: name, text: text, mime: mime };
+          }
+          return download(name, text, mime);
+        });
+    }
+    return Promise.resolve(download(name, text, mime));
+  }
+
+  function download(name, text, mime) {
+    var blob = new Blob([text], { type: mime + ';charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = global.document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.rel = 'noopener';
+    global.document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      global.document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
+    return { ok: true, how: 'download', name: name };
+  }
+
+  function readFile(file) {
+    return new Promise(function (resolve, reject) {
+      var fr = new FileReader();
+      fr.onload = function () { resolve(String(fr.result)); };
+      fr.onerror = function () { reject(new Error('Could not read that file.')); };
+      fr.readAsText(file);
+    });
+  }
+
+  function byNumber(a, b) {
+    var na = parseInt(a, 10), nb = parseInt(b, 10);
+    if (isNaN(na) || isNaN(nb)) return String(a).localeCompare(String(b));
+    return na - nb;
+  }
+
+  return {
+    exportJson: exportJson,
+    importJson: importJson,
+    playsCsv: playsCsv,
+    boxCsv: boxCsv,
+    filename: filename,
+    saveFile: saveFile,
+    download: download,
+    readFile: readFile,
+    detailOf: detailOf,
+    byNumber: byNumber
+  };
+});
+
+/* ==========================================================
+ * app.js
+ * ========================================================== */
+/*
+ * app.js — state and actions.
+ *
+ * This is the whole application as far as behaviour is concerned. The desktop
+ * keyboard layer and the phone touch layer are both just input surfaces that
+ * call these actions and re-render from `App.computed`; neither holds state of
+ * its own.
+ */
+;(function (global, factory) {
+  var api = factory(global);
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (global) { global.FB = global.FB || {}; global.FB.App = api; }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (global) {
+  'use strict';
+
+  var FB = global.FB || {};
+  var E = FB.Engine || require('./engine.js');
+  var M = FB.Model || require('./model.js');
+  var Store = FB.Store || require('./store.js');
+  var IO = FB.IO || require('./io.js');
+
+  var listeners = [];
+  var App = {
+    db: M.emptyDb(),
+    computed: null,
+    notice: null            // {kind:'info'|'warn'|'error', text}
+  };
+
+  /* ---------------- lifecycle ---------------- */
+
+  App.init = function () {
+    App.db = Store.load();
+    if (!App.db.games.length) {
+      var g = M.makeGame({ name: 'Game 1' });
+      App.db.games.push(g);
+      App.db.activeGameId = g.id;
+    }
+    App.recompute();
+    return App;
+  };
+
+  App.subscribe = function (fn) { listeners.push(fn); return fn; };
+
+  App.notify = function () {
+    listeners.forEach(function (fn) { try { fn(App); } catch (err) { console.error(err); } });
+  };
+
+  // Single path for "something changed": recompute everything from the play
+  // log, write the derived numbers back onto the records so exports carry
+  // them, persist, redraw.
+  App.commit = function () {
+    App.recompute();
+    Store.save(App.db);
+    App.notify();
+  };
+
+  App.recompute = function () {
+    var game = App.activeGame();
+    App.computed = game ? E.computeGame(game) : null;
+    if (game && App.computed) syncSnapshots(game, App.computed);
+  };
+
+  function syncSnapshots(game, computed) {
+    (game.plays || []).forEach(function (p) {
+      var row = computed.rows[p.id];
+      if (!row) { p.down = null; p.distance = null; p.yards = null; return; }
+      p.down = row.down;
+      p.distance = row.distance;
+      p.yards = row.pending ? null : row.yards;
+    });
+  }
+
+  /* ---------------- games ---------------- */
+
+  App.activeGame = function () {
+    var id = App.db.activeGameId;
+    for (var i = 0; i < App.db.games.length; i++) {
+      if (App.db.games[i].id === id) return App.db.games[i];
+    }
+    return App.db.games.length ? App.db.games[App.db.games.length - 1] : null;
+  };
+
+  // A new game never touches the old one: the season stays browsable.
+  App.newGame = function (attrs) {
+    var g = M.makeGame(attrs || {});
+    if (!g.name) g.name = 'Game ' + (App.db.games.length + 1);
+    App.db.games.push(g);
+    App.db.activeGameId = g.id;
+    App.commit();
+    return g;
+  };
+
+  App.selectGame = function (id) {
+    if (!App.db.games.some(function (g) { return g.id === id; })) return;
+    App.db.activeGameId = id;
+    App.commit();
+  };
+
+  App.updateGame = function (patch) {
+    var g = App.activeGame();
+    if (!g) return;
+    ['name', 'opponent', 'date'].forEach(function (k) {
+      if (patch[k] != null) g[k] = patch[k];
+    });
+    App.commit();
+  };
+
+  App.deleteGame = function (id) {
+    App.db.games = App.db.games.filter(function (g) { return g.id !== id; });
+    if (!App.db.games.length) {
+      var g = M.makeGame({ name: 'Game 1' });
+      App.db.games.push(g);
+    }
+    if (!App.db.games.some(function (g) { return g.id === App.db.activeGameId; })) {
+      App.db.activeGameId = App.db.games[App.db.games.length - 1].id;
+    }
+    App.commit();
+  };
+
+  /* ---------------- drives ---------------- */
+
+  App.startDrive = function (spot) {
+    var g = App.activeGame();
+    if (!g) return null;
+    var d = M.makeDrive({ gameId: g.id, startSpot: Number(spot) });
+    g.drives.push(d);
+    App.commit();
+    return d;
+  };
+
+  App.currentDrive = function () {
+    var g = App.activeGame();
+    if (!g || !g.drives.length) return null;
+    return g.drives[g.drives.length - 1];
+  };
+
+  // Punt / missed FG / end of half / end of game: one tap, no form.
+  App.endDrive = function (reason) {
+    var d = App.currentDrive();
+    if (!d) return;
+    d.manualEnd = { reason: reason, at: M.nowIso() };
+    App.commit();
+  };
+
+  App.reopenDrive = function () {
+    var d = App.currentDrive();
+    if (!d) return;
+    d.manualEnd = null;
+    App.commit();
+  };
+
+  App.updateDrive = function (id, patch) {
+    var g = App.activeGame();
+    if (!g) return;
+    g.drives.forEach(function (d) {
+      if (d.id !== id) return;
+      if (patch.startSpot != null) d.startSpot = Number(patch.startSpot);
+      if (patch.manualEnd !== undefined) d.manualEnd = patch.manualEnd;
+      if (patch.note != null) d.note = patch.note;
+    });
+    App.commit();
+  };
+
+  /* ---------------- plays ---------------- */
+
+  App.logPlay = function (attrs) {
+    var g = App.activeGame();
+    var d = App.currentDrive();
+    if (!g || !d) throw new Error('Start a drive first.');
+    attrs = attrs || {};
+    attrs.gameId = g.id;
+    attrs.driveId = attrs.driveId || d.id;
+    var p = M.makePlay(attrs);
+    g.plays.push(p);
+    App.commit();
+    return p;
+  };
+
+  // driveId lets a conversion be added to an earlier scoring drive, so a PAT
+  // that was missed in the moment can still be recorded later.
+  App.addPat = function (good, driveId) {
+    var g = App.activeGame();
+    var d = driveId ? findDrive(driveId) : App.currentDrive();
+    if (!g || !d) return null;
+    var p = M.makePat({ gameId: g.id, driveId: d.id, good: good });
+    g.plays.push(p);
+    App.commit();
+    return p;
+  };
+
+  // A 2-point try is charted like any snap; isTwoPoint keeps it out of down &
+  // distance and out of the box score.
+  App.addTwoPoint = function (attrs, driveId) {
+    attrs = attrs || {};
+    attrs.isTwoPoint = true;
+    if (driveId) attrs.driveId = driveId;
+    return App.logPlay(attrs);
+  };
+
+  /*
+   * The result of a try, with nothing else charted. Fine as a record: a
+   * 2-point try never contributes to anyone's totals anyway, so all that is
+   * lost is the wording - which the edit dialog can still fill in.
+   */
+  App.addTwoPointResult = function (good, driveId) {
+    return App.addTwoPoint({
+      spot: 2, playType: 'run', td: !!good, playCall: '2-pt try'
+    }, driveId);
+  };
+
+  // Not watching the kick is not the same as it never happening: the drive
+  // review still offers it afterwards.
+  App.skipConversion = function (driveId) {
+    var d = driveId ? findDrive(driveId) : App.currentDrive();
+    if (!d) return;
+    d.conversionSkipped = true;
+    App.commit();
+  };
+
+  function findDrive(id) {
+    var g = App.activeGame();
+    if (!g) return null;
+    for (var i = 0; i < g.drives.length; i++) if (g.drives[i].id === id) return g.drives[i];
+    return null;
+  }
+
+  App.getPlay = function (id) {
+    var g = App.activeGame();
+    if (!g) return null;
+    for (var i = 0; i < g.plays.length; i++) if (g.plays[i].id === id) return g.plays[i];
+    return null;
+  };
+
+  /*
+   * Every field on a logged play is editable. Down / distance / yards are
+   * derived, so typing one of those stores an override: the recalculation
+   * respects it and picks the chain back up afterwards.
+   */
+  App.updatePlay = function (id, patch) {
+    var p = App.getPlay(id);
+    if (!p) return null;
+    Object.keys(patch).forEach(function (k) {
+      if (k === 'overrides') return;
+      p[k] = patch[k];
+    });
+    if (patch.overrides) {
+      p.overrides = {};
+      ['yards', 'down', 'distance'].forEach(function (k) {
+        var v = patch.overrides[k];
+        if (v != null && v !== '') p.overrides[k] = Number(v);
+      });
+    }
+    p.edited = true;
+    App.commit();
+    return p;
+  };
+
+  App.deletePlay = function (id) {
+    var g = App.activeGame();
+    if (!g) return;
+    g.plays = g.plays.filter(function (p) { return p.id !== id; });
+    App.commit();
+  };
+
+  App.lastPlay = function (opts) {
+    var g = App.activeGame();
+    if (!g || !g.plays.length) return null;
+    for (var i = g.plays.length - 1; i >= 0; i--) {
+      var p = g.plays[i];
+      if (opts && opts.liveOnly && !E.isLive(p)) continue;
+      return p;
+    }
+    return null;
+  };
+
+  App.pendingPlay = function () {
+    if (!App.computed) return null;
+    for (var i = App.computed.drives.length - 1; i >= 0; i--) {
+      var d = App.computed.drives[i];
+      for (var j = d.rows.length - 1; j >= 0; j--) {
+        if (d.rows[j].pending) return App.getPlay(d.rows[j].id);
+      }
+    }
+    return null;
+  };
+
+  /*
+   * Resolve the last play when there is no next snap to measure against:
+   * turnover, end of half, end of game, a kneel to finish it.
+   *   mode 'spot' - final yard line
+   *   mode 'td'   - it scored
+   *   mode 'zero' - no yards credited
+   */
+  App.resolveLast = function (mode, spot) {
+    var p = App.pendingPlay();
+    if (!p) return null;
+    if (mode === 'td') { p.td = true; p.endSpot = null; }
+    else if (mode === 'zero') { p.endSpot = p.spot; p.td = false; }
+    else { p.endSpot = Number(spot); p.td = false; }
+    App.commit();
+    return p;
+  };
+
+  /*
+   * Undo the last thing entered. On a drive that has no plays yet, that thing
+   * was starting the drive, so the drive itself comes back off.
+   */
+  App.undoLast = function () {
+    var g = App.activeGame();
+    if (!g) return null;
+    var d = App.currentDrive();
+    if (d && !g.plays.some(function (p) { return p.driveId === d.id; })) {
+      g.drives.pop();
+      App.commit();
+      return { kind: 'drive', record: d };
+    }
+    if (!g.plays.length) return null;
+    var p = g.plays.pop();
+    App.commit();
+    return { kind: 'play', record: p };
+  };
+
+  /* ---------------- season roll-up ---------------- */
+
+  function blank(kind) {
+    if (kind === 'passing') return { att: 0, comp: 0, yards: 0, td: 0, int: 0, sacks: 0 };
+    if (kind === 'rushing') return { carries: 0, yards: 0, td: 0 };
+    return { rec: 0, yards: 0, td: 0 };
+  }
+
+  function mergeInto(target, src, kind) {
+    Object.keys(src).forEach(function (num) {
+      if (!target[num]) target[num] = blank(kind);
+      Object.keys(src[num]).forEach(function (k) {
+        target[num][k] = E.round1(target[num][k] + src[num][k]);
+      });
+    });
+  }
+
+  App.seasonSummary = function () {
+    var box = { passing: {}, rushing: {}, receiving: {} };
+    var games = [];
+    var totals = { plays: 0, yards: 0, firstDowns: 0, drives: 0, touchdowns: 0, points: 0 };
+    App.db.games.forEach(function (g) {
+      var c = E.computeGame(g);
+      mergeInto(box.passing, c.box.passing, 'passing');
+      mergeInto(box.rushing, c.box.rushing, 'rushing');
+      mergeInto(box.receiving, c.box.receiving, 'receiving');
+      totals.plays += c.totals.plays;
+      totals.yards = E.round1(totals.yards + c.totals.yards);
+      totals.firstDowns += c.totals.firstDowns;
+      totals.drives += c.totals.drives;
+      totals.touchdowns += c.totals.touchdowns;
+      totals.points += c.score;
+      games.push({ game: g, computed: c });
+    });
+    return { box: box, totals: totals, games: games };
+  };
+
+  /* ---------------- import / export ---------------- */
+
+  App.exportData = function () {
+    Store.flush(App.db);
+    return IO.saveFile(IO.filename('data'), IO.exportJson(App.db), 'application/json');
+  };
+
+  App.exportPlaysCsv = function () {
+    var g = App.activeGame();
+    return IO.saveFile(IO.filename('plays', g), IO.playsCsv(g, App.computed), 'text/csv');
+  };
+
+  App.exportBoxCsv = function () {
+    var g = App.activeGame();
+    return IO.saveFile(IO.filename('boxscore', g), IO.boxCsv(g, App.computed), 'text/csv');
+  };
+
+  App.importData = function (text, mode) {
+    var res = IO.importJson(App.db, text, mode);
+    App.db = res.db;
+    App.commit();
+    return res;
+  };
+
+  App.storeState = Store.state;
+
+  return App;
+});
+
+/* ==========================================================
+ * playform.js
+ * ========================================================== */
+/*
+ * playform.js — the one play form.
+ *
+ * Used twice: as the live entry form and inside the edit dialog. Building it
+ * once means an edited play can express exactly what a logged play can, and
+ * the two can never drift apart.
+ *
+ * Every control is built up front and shown or hidden as the play type
+ * changes, so DOM order == Tab order == the order the coach fills it in:
+ *   formation -> backfield -> motion -> play call -> snap spot -> play type
+ *   -> outcome -> player numbers -> TD -> log.
+ */
+;(function (global) {
+  'use strict';
+  var FB = global.FB;
+  var D = FB.dom, E = FB.Engine;
+
+  // key = the single keystroke that picks this option while the dropdown has
+  // focus. 'f' for the penalty Flag, since Pass already owns 'p'.
+  var PLAY_TYPES = [
+    { value: 'run', label: 'Run', key: 'r' },
+    { value: 'pass', label: 'Pass', key: 'p' },
+    { value: 'sack', label: 'Sack', key: 's' },
+    { value: 'penalty', label: 'Penalty', key: 'f' },
+    { value: 'turnover', label: 'Turnover', key: 't' },
+    { value: 'safety', label: 'Safety', key: 'y' }
+  ];
+
+  var PASS_OUTCOMES = [
+    { value: 'complete', label: 'Complete', key: 'c' },
+    { value: 'incomplete', label: 'Incomplete', key: 'i' },
+    { value: 'scramble', label: 'Scramble', key: 'm' }
+  ];
+
+  function create(opts) {
+    opts = opts || {};
+    var mode = opts.mode || 'entry';
+    var isEdit = mode === 'edit';
+    var api = {};
+
+    var root = D.el('form', { class: 'pf', novalidate: true, autocomplete: 'off' });
+
+    /*
+     * Shown instead of silently hiding the whole form when there's no drive to
+     * log into. An empty panel reads as a broken app; this says what to do.
+     */
+    var lockBtn = D.el('button', { type: 'button', class: 'btn btn-primary btn-sm' }, ['Start a drive']);
+    var lock = D.el('div', { class: 'pf-lock', hidden: true }, [
+      D.el('span', { text: 'Enter the drive\u2019s starting yard line before logging plays.' }),
+      lockBtn
+    ]);
+    lockBtn.addEventListener('click', function () { if (opts.onLockedClick) opts.onLockedClick(); });
+    // Only live entry can be locked; editing an existing play always has a
+    // drive to belong to.
+    if (!isEdit) root.appendChild(lock);
+
+    /* --- the four free-text fields (Phase 2 hangs autocomplete off these) --- */
+    var formation = D.field({ label: 'Formation', placeholder: 'Trips Rt', enterkeyhint: 'next' });
+    var backfield = D.field({ label: 'Backfield', placeholder: 'Pistol', enterkeyhint: 'next' });
+    var motion = D.field({ label: 'Motion', placeholder: 'Z jet', enterkeyhint: 'next' });
+    var playCall = D.field({ label: 'Play call', placeholder: 'Power R', enterkeyhint: 'next' });
+    root.appendChild(D.el('div', { class: 'pf-grid pf-row-detail' }, [
+      formation.wrap, backfield.wrap, motion.wrap, playCall.wrap
+    ]));
+
+    /* --- snap spot: the only field position ever typed --- */
+    var spot = D.field({
+      label: 'Snap spot', class: 'spot-field grow',
+      placeholder: '-25 or +40', inputmode: 'text', autocapitalize: 'off', enterkeyhint: 'next'
+    });
+    var spotNote = D.el('div', { class: 'pf-note pf-row-note' });
+    root.appendChild(D.el('div', { class: 'row pf-row-spot' }, [spot.wrap]));
+    root.appendChild(spotNote);
+
+    /* --- play type --- */
+    /*
+     * A dropdown. Picking a type by its letter is a decision, so focus jumps
+     * straight to the number that type needs - that is the whole keyboard
+     * rhythm. Arrowing through the list is only browsing, and a closed
+     * <select> fires change on every step, so focus stays put for that.
+     */
+    var typeSeg = D.select({
+      label: 'Play type', items: PLAY_TYPES, value: 'run',
+      onChange: function (v, source) { sync(); if (source === 'key') focusContext(); }
+    });
+    root.appendChild(D.el('div', { class: 'field pf-row-type' }, [
+      D.el('span', { class: 'lbl', text: 'Play type' }), typeSeg.root
+    ]));
+
+    var context = D.el('div', { class: 'pf-context' });
+    root.appendChild(context);
+
+    /* --- pass outcome --- */
+    var outcomeSeg = D.segment({
+      label: 'Pass outcome', class: 'seg-sub', items: PASS_OUTCOMES, value: 'complete',
+      onChange: function () { sync(); }
+    });
+    var outcomeRow = D.el('div', { class: 'field' }, [
+      D.el('span', { class: 'lbl', text: 'Outcome' }), outcomeSeg.root
+    ]);
+    context.appendChild(outcomeRow);
+
+    /* --- turnover kind --- */
+    var turnoverSeg = D.segment({
+      label: 'Turnover', class: 'seg-sub', value: 'interception',
+      items: [
+        { value: 'interception', label: 'Interception', key: 'i' },
+        { value: 'fumble', label: 'Fumble lost', key: 'f' }
+      ],
+      onChange: function (v, source) { sync(); if (source !== 'arrow') focusContext(); }
+    });
+    var turnoverRow = D.el('div', { class: 'field' }, [
+      D.el('span', { class: 'lbl', text: 'Turnover' }), turnoverSeg.root
+    ]);
+    context.appendChild(turnoverRow);
+
+    /* --- underlying play (fumble, or a penalty beyond the LOS) --- */
+    var underSeg = D.segment({
+      label: 'Underlying play', class: 'seg-sub', value: 'run',
+      items: [
+        { value: 'run', label: 'Run', key: 'r' },
+        { value: 'pass', label: 'Pass', key: 'p' }
+      ],
+      onChange: function (v, source) { sync(); if (source !== 'arrow') focusContext(); }
+    });
+    var underRow = D.el('div', { class: 'field' }, [
+      D.el('span', { class: 'lbl', text: 'Chart the play as' }), underSeg.root
+    ]);
+    context.appendChild(underRow);
+
+    /* --- penalty --- */
+    var penOnSeg = D.segment({
+      label: 'Penalty on', class: 'seg-sub', value: 'us',
+      items: [
+        { value: 'us', label: 'On us', key: 'u' },
+        { value: 'them', label: 'On them', key: 'h' }
+      ]
+    });
+    var penYards = D.field({ label: 'Yards', class: 'num-field', inputmode: 'numeric', placeholder: '10' });
+    var penAuto = D.toggle({ label: 'Automatic 1st down' });
+    var penBeyond = D.toggle({ label: 'Beyond the LOS' });
+    penBeyond.input.addEventListener('change', function () { sync(); });
+    var penCredited = D.field({
+      label: 'Yards credited to the play', class: 'num-field', inputmode: 'text', placeholder: '0'
+    });
+    var penRow = D.el('div', { class: 'field' }, [
+      D.el('span', { class: 'lbl', text: 'Penalty' }),
+      penOnSeg.root,
+      D.el('div', { class: 'row wrap gap-top' }, [penYards.wrap, penAuto.wrap, penBeyond.wrap])
+    ]);
+    context.appendChild(penRow);
+    context.appendChild(penCredited.wrap);
+
+    /* --- player numbers --- */
+    var carrier = D.field({ label: 'Ball carrier #', class: 'num-field', inputmode: 'numeric', placeholder: '22' });
+    var qb = D.field({ label: 'QB #', class: 'num-field', inputmode: 'numeric', placeholder: '12' });
+    var receiver = D.field({ label: 'Receiver #', class: 'num-field', inputmode: 'numeric', placeholder: '80' });
+    var playersRow = D.el('div', { class: 'pf-grid' }, [carrier.wrap, qb.wrap, receiver.wrap]);
+    context.appendChild(playersRow);
+
+    /* --- TD --- */
+    var td = D.toggle({ label: 'Touchdown', class: 'td' });
+    var tdRow = D.el('div', { class: 'row wrap pf-row-td' }, [td.wrap]);
+    root.appendChild(tdRow);
+
+    /* --- kneel / spike / 2-pt flags (edit only; live entry uses the buttons) --- */
+    var kneel = D.toggle({ label: 'Kneel' });
+    var spike = D.toggle({ label: 'Spike' });
+    var twoPt = D.toggle({ label: '2-point try (no box score)' });
+    var flagsRow = D.el('div', { class: 'row wrap pf-row-flags' }, [kneel.wrap, spike.wrap, twoPt.wrap]);
+    if (isEdit) root.appendChild(flagsRow); else flagsRow.hidden = true;
+
+    /* --- derived-value overrides (edit only) --- */
+    var ovDown = D.field({ label: 'Down', class: 'num-field', inputmode: 'numeric', placeholder: 'auto' });
+    var ovDist = D.field({ label: 'Distance', class: 'num-field', inputmode: 'numeric', placeholder: 'auto' });
+    var ovYards = D.field({ label: 'Yards', class: 'num-field', inputmode: 'text', placeholder: 'auto' });
+    var ovRow = D.el('div', { class: 'field pf-row-ov' }, [
+      D.el('span', { class: 'lbl', text: 'Override the computed numbers' }),
+      D.el('div', { class: 'pf-grid' }, [ovDown.wrap, ovDist.wrap, ovYards.wrap]),
+      D.el('div', {
+        class: 'pf-note',
+        text: 'Leave these blank to let the chart compute them. Anything you type here is kept, and the auto-logic picks back up on the next play.'
+      })
+    ]);
+    if (isEdit) root.appendChild(ovRow);
+
+    /* --- error + submit --- */
+    var errBox = D.el('div', { class: 'err pf-row-err', hidden: true });
+    root.appendChild(errBox);
+
+    var submitBtn = D.el('button', { type: 'submit', class: 'btn btn-primary btn-tall' }, [
+      D.el('span', { text: isEdit ? 'Save changes' : 'Log play' }),
+      isEdit ? null : D.el('span', { class: 'key', text: 'ENTER' })
+    ]);
+    var deleteBtn = D.el('button', { type: 'button', class: 'btn btn-bad' }, ['Delete play']);
+    var clearBtn = D.el('button', { type: 'button', class: 'btn btn-quiet' }, ['Clear']);
+    var submitRow = D.el('div', { class: 'pf-submit' }, [submitBtn, isEdit ? deleteBtn : clearBtn]);
+    root.appendChild(submitRow);
+
+    deleteBtn.addEventListener('click', function () { if (opts.onDelete) opts.onDelete(); });
+    clearBtn.addEventListener('click', function () { api.reset({ keepSpot: true }); api.focusFirst(); });
+
+    /*
+     * Enter logs the play from anywhere in the form, including from a
+     * segmented button, where Enter would otherwise just re-pick the option.
+     */
+    root.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter' || ev.shiftKey || ev.ctrlKey || ev.metaKey) return;
+      if (ev.target && ev.target.tagName === 'TEXTAREA') return;
+      ev.preventDefault();
+      submit();
+    });
+
+    root.addEventListener('submit', function (ev) { ev.preventDefault(); submit(); });
+
+    function submit() {
+      var res = api.getValues();
+      if (!res.ok) {
+        api.showError(res.error);
+        if (res.focus && res.focus.focus) res.focus.focus();
+        return;
+      }
+      api.showError(null);
+      if (opts.onSubmit) opts.onSubmit(res.attrs);
+    }
+
+    /* ---------------- visibility ---------------- */
+
+    // What kind of play the form is currently describing, once turnovers and
+    // beyond-the-LOS penalties are unwrapped.
+    function effectiveType() {
+      var t = typeSeg.get();
+      if (t === 'turnover') {
+        return turnoverSeg.get() === 'interception' ? 'pass' : underSeg.get();
+      }
+      if (t === 'penalty' && penBeyond.input.checked) return underSeg.get();
+      return t;
+    }
+
+    function sync() {
+      var t = typeSeg.get();
+      var isInt = t === 'turnover' && turnoverSeg.get() === 'interception';
+      var eff = effectiveType();
+      var outcome = isInt ? 'intercepted' : outcomeSeg.get();
+
+      D.show(turnoverRow, t === 'turnover');
+      D.show(underRow, (t === 'turnover' && turnoverSeg.get() === 'fumble') ||
+        (t === 'penalty' && penBeyond.input.checked));
+      D.show(penRow, t === 'penalty');
+      D.show(penCredited.wrap, t === 'penalty' && penBeyond.input.checked);
+      D.show(outcomeRow, eff === 'pass' && !isInt);
+
+      var wipedPenalty = t === 'penalty' && !penBeyond.input.checked;
+      D.show(playersRow, !wipedPenalty);
+      D.show(carrier.wrap, !wipedPenalty && (eff === 'run' || eff === 'safety'));
+      D.show(qb.wrap, !wipedPenalty && (eff === 'pass' || eff === 'sack'));
+      D.show(receiver.wrap, !wipedPenalty && eff === 'pass' && outcome === 'complete');
+
+      // A TD is impossible on a wiped penalty, a sack, a safety or a pick.
+      var canScore = !wipedPenalty && eff !== 'sack' && eff !== 'safety' && !isInt &&
+        !(eff === 'pass' && (outcome === 'incomplete'));
+      D.show(tdRow, canScore);
+      if (!canScore) td.input.checked = false;
+
+      context.hidden = !(turnoverRow.hidden === false || penRow.hidden === false ||
+        outcomeRow.hidden === false || playersRow.hidden === false || underRow.hidden === false);
+    }
+
+    /*
+     * After a play type is picked, jump to the first thing that still needs
+     * typing so the coach never hunts for it. Skipped on touch, where
+     * stealing focus would throw the on-screen keyboard over the form.
+     */
+    function focusContext() {
+      if (isEdit) return;
+      if (opts.shouldAutoFocus && !opts.shouldAutoFocus()) return;
+      var first = [carrier.input, qb.input, receiver.input, penYards.input].filter(function (i) {
+        return i.offsetParent !== null && !i.value;
+      })[0];
+      if (first) first.focus();
+    }
+
+    /* ---------------- values in ---------------- */
+
+    api.root = root;
+    api.elements = {
+      formation: formation.input, backfield: backfield.input, motion: motion.input,
+      playCall: playCall.input, spot: spot.input, carrier: carrier.input, qb: qb.input,
+      receiver: receiver.input, td: td.input, submit: submitBtn
+    };
+
+    api.setValues = function (p) {
+      p = p || {};
+      formation.input.value = p.formation || '';
+      backfield.input.value = p.backfield || '';
+      motion.input.value = p.motion || '';
+      playCall.input.value = p.playCall || '';
+      spot.input.value = p.spot == null ? '' : E.formatSpot(p.spot);
+      carrier.input.value = p.carrier || '';
+      qb.input.value = p.qb || '';
+      receiver.input.value = p.receiver || '';
+      td.input.checked = !!p.td;
+      kneel.input.checked = !!p.isKneel;
+      spike.input.checked = !!p.isSpike;
+      twoPt.input.checked = !!p.isTwoPoint;
+
+      if (p.turnover === 'interception') {
+        typeSeg.set('turnover'); turnoverSeg.set('interception');
+      } else if (p.turnover === 'fumble') {
+        typeSeg.set('turnover'); turnoverSeg.set('fumble');
+        underSeg.set(p.playType === 'pass' ? 'pass' : 'run');
+        if (p.passOutcome) outcomeSeg.set(p.passOutcome === 'intercepted' ? 'complete' : p.passOutcome);
+      } else {
+        typeSeg.set(p.playType || 'run');
+        if (p.passOutcome && p.passOutcome !== 'intercepted') outcomeSeg.set(p.passOutcome);
+      }
+
+      var pen = p.penalty;
+      penOnSeg.set(pen ? pen.on : 'us');
+      penYards.input.value = pen ? pen.yards : '';
+      penAuto.input.checked = !!(pen && pen.autoFirst);
+      penBeyond.input.checked = !!(pen && pen.beyondLOS);
+      penCredited.input.value = pen && pen.beyondLOS ? pen.creditedYards : '';
+      if (pen && pen.beyondLOS && pen.underlyingType !== 'none') underSeg.set(pen.underlyingType);
+
+      var ov = p.overrides || {};
+      ovDown.input.value = ov.down == null ? '' : ov.down;
+      ovDist.input.value = ov.distance == null ? '' : ov.distance;
+      ovYards.input.value = ov.yards == null ? '' : ov.yards;
+
+      sync();
+    };
+
+    /* ---------------- values out ---------------- */
+
+    function numOrNull(input) {
+      var v = String(input.value || '').trim();
+      if (!v) return null;
+      var n = Number(v);
+      return isNaN(n) ? null : n;
+    }
+
+    api.getValues = function () {
+      var parsed = E.parseSpot(spot.input.value);
+      if (!parsed.ok) return { ok: false, error: parsed.error, focus: spot.input };
+
+      var t = typeSeg.get();
+      var isInt = t === 'turnover' && turnoverSeg.get() === 'interception';
+      var eff = effectiveType();
+      // The outcome belongs to the play underneath, whatever wrapper it has:
+      // a fumble, or a penalty charted beyond the line of scrimmage.
+      var outcome = eff !== 'pass' ? null : (isInt ? 'intercepted' : outcomeSeg.get());
+
+      var attrs = {
+        spot: parsed.value,
+        formation: formation.input.value.trim(),
+        backfield: backfield.input.value.trim(),
+        motion: motion.input.value.trim(),
+        playCall: playCall.input.value.trim(),
+        carrier: '', qb: '', receiver: '',
+        td: !!(td.input.checked && !tdRow.hidden),
+        turnover: null,
+        passOutcome: null,
+        penalty: null,
+        isKneel: kneel.input.checked,
+        isSpike: spike.input.checked,
+        isTwoPoint: twoPt.input.checked
+      };
+
+      attrs.passOutcome = outcome;
+
+      if (t === 'penalty') {
+        var yards = numOrNull(penYards.input);
+        if (yards == null) return { ok: false, error: 'Penalty yardage?', focus: penYards.input };
+        var beyond = penBeyond.input.checked;
+        attrs.playType = 'penalty';
+        attrs.penalty = {
+          on: penOnSeg.get(),
+          yards: Math.abs(yards),
+          autoFirst: penAuto.input.checked,
+          beyondLOS: beyond,
+          underlyingType: beyond ? underSeg.get() : 'none',
+          creditedYards: beyond ? (numOrNull(penCredited.input) || 0) : 0
+        };
+      } else if (isInt) {
+        attrs.playType = 'pass';
+        attrs.turnover = 'interception';
+      } else {
+        attrs.playType = eff;
+        if (t === 'turnover') attrs.turnover = 'fumble';
+      }
+
+      // Player numbers, only where they mean something.
+      if (!(t === 'penalty' && !penBeyond.input.checked)) {
+        if (eff === 'run' || eff === 'safety') attrs.carrier = carrier.input.value.trim();
+        if (eff === 'pass' || eff === 'sack') attrs.qb = qb.input.value.trim();
+        if (eff === 'pass' && outcome === 'complete') attrs.receiver = receiver.input.value.trim();
+      }
+
+      if (isEdit) {
+        attrs.overrides = {};
+        var d = numOrNull(ovDown.input);
+        var di = numOrNull(ovDist.input);
+        var y = numOrNull(ovYards.input);
+        if (d != null) attrs.overrides.down = d;
+        if (di != null) attrs.overrides.distance = di;
+        if (y != null) attrs.overrides.yards = y;
+      }
+
+      return { ok: true, attrs: attrs };
+    };
+
+    /* ---------------- misc ---------------- */
+
+    api.reset = function (o) {
+      o = o || {};
+      formation.input.value = '';
+      backfield.input.value = '';
+      motion.input.value = '';
+      playCall.input.value = '';
+      carrier.input.value = '';
+      qb.input.value = '';
+      receiver.input.value = '';
+      td.input.checked = false;
+      kneel.input.checked = false;
+      spike.input.checked = false;
+      if (!o.keepTwoPoint) twoPt.input.checked = false;
+      penYards.input.value = '';
+      penCredited.input.value = '';
+      penAuto.input.checked = false;
+      penBeyond.input.checked = false;
+      // Every sub-choice goes back to its default too. A "pass incomplete"
+      // left over from the last snap would silently mis-chart the next one.
+      outcomeSeg.set('complete');
+      turnoverSeg.set('interception');
+      underSeg.set('run');
+      penOnSeg.set('us');
+      ovDown.input.value = '';
+      ovDist.input.value = '';
+      ovYards.input.value = '';
+      if (!o.keepType) typeSeg.set('run');
+      if (!o.keepSpot) spot.input.value = '';
+      api.showError(null);
+      sync();
+    };
+
+    /*
+     * Locked means visible but inert: the coach can see the whole form and is
+     * told the one thing standing between them and using it.
+     */
+    api.setEnabled = function (on) {
+      lock.hidden = !!on;
+      root.classList.toggle('pf-locked', !on);
+      D.qsa('input, select, button, textarea', root).forEach(function (node) {
+        if (node === lockBtn) return;
+        node.disabled = !on;
+      });
+    };
+
+    api.focusFirst = function () { formation.input.focus(); };
+    api.focusSpot = function () { spot.input.select(); };
+    api.setSpot = function (signed) { spot.input.value = signed == null ? '' : E.formatSpot(signed); };
+    api.getSpotText = function () { return spot.input.value; };
+    api.setNote = function (textOrNull) {
+      spotNote.textContent = textOrNull || '';
+      spotNote.hidden = !textOrNull;
+    };
+    api.toggleTd = function () {
+      if (tdRow.hidden) return false;
+      td.input.checked = !td.input.checked;
+      return td.input.checked;
+    };
+    api.setTwoPoint = function (on) { twoPt.input.checked = !!on; };
+    api.showError = function (msg) {
+      errBox.textContent = msg || '';
+      errBox.hidden = !msg;
+    };
+    api.submit = submit;
+
+    sync();
+    return api;
+  }
+
+  FB.PlayForm = { create: create };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* ==========================================================
+ * ui.js
+ * ========================================================== */
+/*
+ * ui.js — both input surfaces.
+ *
+ * There is one DOM and one set of actions. `body.mode-desktop` is the
+ * keyboard rhythm (Tab down the form, Enter logs, never touch the mouse);
+ * `body.mode-touch` is the same form with big targets and a sticky TD /
+ * Resolve / Log bar. Neither one holds state: they render from App.computed
+ * and call App actions.
+ */
+;(function (global) {
+  'use strict';
+  var FB = global.FB;
+  var D = FB.dom, E = FB.Engine, App = FB.App, IO = FB.IO;
+  var el = D.el, qs = D.qs;
+
+  var ui = {
+    tab: 'drive',
+    driveView: null,        // which drive the "This drive" tab is showing
+    chartingTwoPoint: false,
+    editingId: null,
+    importMode: 'merge',
+    editingDriveId: null,
+    twoPointDriveId: null,
+    gameDialogMode: 'new',
+    notice: null
+  };
+
+  var entryForm, editForm;
+
+  /* ================= boot ================= */
+
+  function boot() {
+    App.init();
+
+    entryForm = FB.PlayForm.create({
+      mode: 'entry',
+      onSubmit: onLogPlay,
+      shouldAutoFocus: function () { return !isTouch(); },
+      onLockedClick: function () {
+        var spot = qs('#drive-spot');
+        if (spot) { spot.focus(); spot.scrollIntoView({ block: 'center' }); }
+      }
+    });
+    var mount = qs('#entry-mount');
+    D.clear(mount);                       // drops the did-not-start fallback
+    mount.appendChild(entryForm.root);
+
+    editForm = FB.PlayForm.create({
+      mode: 'edit',
+      onSubmit: onSaveEdit,
+      onDelete: onDeleteEdit
+    });
+    qs('#edit-mount').appendChild(editForm.root);
+
+    wireChrome();
+    wireDriveForm();
+    wireQuickActions();
+    wireTabs();
+    wireDialogs();
+    wireTouchBar();
+    wireGlobalKeys();
+    applyMode(localStorage_get('ingame-chart.mode') || 'auto');
+
+    App.subscribe(render);
+    render();
+    focusForEntry();
+  }
+
+  function localStorage_get(k) {
+    try { return global.localStorage.getItem(k); } catch (err) { return null; }
+  }
+  function localStorage_set(k, v) {
+    try { global.localStorage.setItem(k, v); } catch (err) {}
+  }
+
+  /* ================= layout mode ================= */
+
+  function applyMode(mode) {
+    qs('#mode-select').value = mode;
+    localStorage_set('ingame-chart.mode', mode);
+    var touch = mode === 'touch' || (mode === 'auto' && autoTouch());
+    document.body.classList.toggle('mode-touch', touch);
+    document.body.classList.toggle('mode-desktop', !touch);
+  }
+
+  function autoTouch() {
+    try {
+      return global.matchMedia('(pointer: coarse)').matches || global.innerWidth < 820;
+    } catch (err) {
+      return global.innerWidth < 820;
+    }
+  }
+
+  function isTouch() { return document.body.classList.contains('mode-touch'); }
+
+  /* ================= actions ================= */
+
+  function onLogPlay(attrs) {
+    // Clear the 2-point flag before logging: the log triggers a render, and
+    // it has to draw the form as it will be, not as it was.
+    var wasTwoPoint = ui.chartingTwoPoint;
+    ui.chartingTwoPoint = false;
+    try {
+      if (wasTwoPoint) {
+        attrs.isTwoPoint = true;
+        entryForm.setTwoPoint(false);
+        App.addTwoPoint(attrs, ui.twoPointDriveId);
+        ui.twoPointDriveId = null;
+      } else {
+        App.logPlay(attrs);
+      }
+    } catch (err) {
+      ui.chartingTwoPoint = wasTwoPoint;
+      entryForm.showError(err.message);
+      return;
+    }
+    afterLog();
+  }
+
+  // Back to the top of the form, text fields cleared, next snap spot filled
+  // in whenever the chart already knows where the ball is.
+  function afterLog() {
+    entryForm.reset({ keepSpot: false });
+    entryForm.setSpot(App.computed.current.nextSpot);
+    render();
+    focusForEntry();
+  }
+
+  function focusForEntry() {
+    if (isTouch()) return;                        // don't pop the soft keyboard
+    if (!App.computed) return;
+    if (App.computed.current.needsDrive && !ui.chartingTwoPoint) {
+      var spot = qs('#drive-spot');
+      if (spot && !qs('#drive-panel').hidden) spot.focus();
+      return;
+    }
+    entryForm.focusFirst();
+  }
+
+  function endDrive(reason) {
+    App.endDrive(reason);
+    if (App.pendingPlay()) openResolve();
+  }
+
+  // The quick buttons need a spot: whatever is typed, else where the chart
+  // already says the ball is.
+  function quickSpot() {
+    var typed = E.parseSpot(entryForm.getSpotText());
+    if (typed.ok) return typed.value;
+    var next = App.computed.current.nextSpot;
+    if (next != null) return next;
+    return null;
+  }
+
+  function quickPlay(attrs, label) {
+    if (App.computed.current.needsDrive) { notice('warn', 'Start a drive first.'); return; }
+    var spot = quickSpot();
+    if (spot == null) {
+      notice('warn', 'Type the snap spot for the ' + label + ' first.');
+      entryForm.focusSpot();
+      return;
+    }
+    attrs.spot = spot;
+    App.logPlay(attrs);
+    afterLog();
+  }
+
+  function notice(kind, text, action) {
+    ui.notice = { kind: kind, text: text, action: action || null };
+    render();
+    if (ui.noticeTimer) clearTimeout(ui.noticeTimer);
+    ui.noticeTimer = setTimeout(function () { ui.notice = null; render(); }, action ? 20000 : 6000);
+  }
+
+  /* ================= chrome wiring ================= */
+
+  function wireChrome() {
+    // The game selector's handler is (re)attached in renderGameSelect, which
+    // is what knows about the "+ New game" entry.
+    qs('#mode-select').addEventListener('change', function (ev) { applyMode(ev.target.value); });
+    qs('#btn-export').addEventListener('click', function () { qs('#export-dialog').showModal(); });
+    qs('#btn-import').addEventListener('click', function () { qs('#import-dialog').showModal(); });
+    qs('#btn-help').addEventListener('click', openHelp);
+
+    global.addEventListener('resize', function () {
+      if (qs('#mode-select').value === 'auto') applyMode('auto');
+    });
+    // A half-charted game should survive closing the laptop lid.
+    global.addEventListener('beforeunload', function () { FB.Store.flush(App.db); });
+  }
+
+  function wireDriveForm() {
+    qs('#drive-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var parsed = E.parseSpot(qs('#drive-spot').value);
+      var err = qs('#drive-spot-err');
+      if (!parsed.ok) {
+        err.textContent = parsed.error;
+        err.hidden = false;
+        return;
+      }
+      err.hidden = true;
+      qs('#drive-spot').value = '';
+      App.startDrive(parsed.value);
+      entryForm.setSpot(App.computed.current.nextSpot);
+      focusForEntry();
+    });
+
+    qs('#btn-pat-good').addEventListener('click', function () { App.addPat(true); focusForEntry(); });
+    qs('#btn-pat-bad').addEventListener('click', function () { App.addPat(false); focusForEntry(); });
+    qs('#btn-skip-conv').addEventListener('click', function () {
+      ui.chartingTwoPoint = false;
+      App.skipConversion();
+      focusForEntry();
+    });
+    qs('#btn-two-point').addEventListener('click', function () {
+      ui.chartingTwoPoint = true;
+      ui.twoPointDriveId = null;
+      entryForm.reset({});
+      entryForm.setTwoPoint(true);
+      // A try is snapped from a fixed spot, not from where the TD ended.
+      entryForm.setSpot(2);
+      render();
+      if (!isTouch()) entryForm.focusFirst();
+    });
+  }
+
+  function wireQuickActions() {
+    D.qsa('#quick-actions [data-end]').forEach(function (btn) {
+      btn.addEventListener('click', function () { endDrive(btn.dataset.end); });
+    });
+    qs('#btn-kneel').addEventListener('click', function () {
+      quickPlay({ playType: 'run', isKneel: true, carrier: entryForm.elements.qb.value.trim(), playCall: 'Kneel' }, 'kneel');
+    });
+    qs('#btn-spike').addEventListener('click', function () {
+      quickPlay({
+        playType: 'pass', passOutcome: 'incomplete', isSpike: true,
+        qb: entryForm.elements.qb.value.trim(), playCall: 'Spike'
+      }, 'spike');
+    });
+    qs('#btn-undo').addEventListener('click', function () {
+      var undone = App.undoLast();
+      if (undone) {
+        notice('info', undone.kind === 'drive'
+          ? 'Removed the drive that had not started yet.'
+          : 'Removed the last entry.');
+      }
+      focusForEntry();
+    });
+  }
+
+  function wireTabs() {
+    D.qsa('.tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        ui.tab = tab.dataset.tab;
+        render();
+      });
+    });
+  }
+
+  function wireTouchBar() {
+    qs('#tb-td').addEventListener('click', function () {
+      var on = entryForm.toggleTd();
+      qs('#tb-td').classList.toggle('on', on);
+    });
+    qs('#tb-log').addEventListener('click', function () { entryForm.submit(); });
+    qs('#tb-resolve').addEventListener('click', openResolve);
+  }
+
+  /*
+   * Global keys. Everything that matters during a snap is reachable by Tab
+   * and Enter; these are for the between-plays actions. accesskey covers the
+   * buttons themselves (Alt+P to punt, and so on) - this adds the two that
+   * have no button of their own.
+   */
+  function wireGlobalKeys() {
+    document.addEventListener('keydown', function (ev) {
+      if (ev.ctrlKey || ev.metaKey) return;
+      if (ev.key === 'Escape' && !document.querySelector('dialog[open]')) {
+        entryForm.reset({ keepSpot: true });
+        focusForEntry();
+        return;
+      }
+      if (!ev.altKey) return;
+      var k = ev.key.toLowerCase();
+      if (k === 'r') { ev.preventDefault(); openResolve(); }
+      else if (k === 't') { ev.preventDefault(); entryForm.toggleTd(); }
+    });
+  }
+
+  /* ================= dialogs ================= */
+
+  function wireDialogs() {
+    // Resolve last play
+    qs('#resolve-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var parsed = E.parseSpot(qs('#resolve-spot').value);
+      var err = qs('#resolve-err');
+      if (!parsed.ok) { err.textContent = parsed.error; err.hidden = false; return; }
+      err.hidden = true;
+      App.resolveLast('spot', parsed.value);
+      qs('#resolve-dialog').close();
+      focusForEntry();
+    });
+    qs('#btn-resolve-td').addEventListener('click', function () {
+      App.resolveLast('td');
+      qs('#resolve-dialog').close();
+      focusForEntry();
+    });
+    qs('#btn-resolve-zero').addEventListener('click', function () {
+      App.resolveLast('zero');
+      qs('#resolve-dialog').close();
+      focusForEntry();
+    });
+
+    // Export
+    qs('#btn-export-json').addEventListener('click', function () { runExport(App.exportData()); });
+    qs('#btn-export-plays').addEventListener('click', function () { runExport(App.exportPlaysCsv()); });
+    qs('#btn-export-box').addEventListener('click', function () { runExport(App.exportBoxCsv()); });
+
+    // Import
+    qs('#btn-import-merge').addEventListener('click', function () { pickImport('merge'); });
+    qs('#btn-import-replace').addEventListener('click', function () { pickImport('replace'); });
+    qs('#import-file').addEventListener('change', function (ev) {
+      var file = ev.target.files && ev.target.files[0];
+      ev.target.value = '';
+      if (!file) return;
+      IO.readFile(file).then(function (text) {
+        var res = App.importData(text, ui.importMode);
+        ui.driveView = null;
+        notice('info', 'Imported ' + res.added + ' new game(s), updated ' + res.updated + '.');
+      }).catch(function (err) {
+        notice('error', 'Import failed: ' + err.message);
+      });
+    });
+
+    qs('#drive-edit-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var parsed = E.parseSpot(qs('#drive-edit-spot').value);
+      var err = qs('#drive-edit-err');
+      if (!parsed.ok) { err.textContent = parsed.error; err.hidden = false; return; }
+      App.updateDrive(ui.editingDriveId, { startSpot: parsed.value });
+      qs('#drive-edit-dialog').close();
+      focusForEntry();
+    });
+
+    // Game details
+    qs('#game-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var attrs = {
+        name: qs('#game-name').value.trim(),
+        opponent: qs('#game-opponent').value.trim(),
+        date: qs('#game-date').value
+      };
+      if (ui.gameDialogMode === 'new') App.newGame(attrs);
+      else App.updateGame(attrs);
+      qs('#game-dialog').close();
+      ui.driveView = null;
+    });
+  }
+
+  function runExport(promise) {
+    qs('#export-dialog').close();
+    Promise.resolve(promise).then(function (res) {
+      if (!res) return;
+      if (res.cancelled) {
+        // Never let an export end in silence - this is the only thing
+        // standing between the coach and a lost game.
+        notice('warn', 'Nothing was saved.', {
+          label: 'Save as a download instead',
+          fn: function () {
+            var out = IO.download(res.name, res.text, res.mime);
+            notice('info', 'Saved ' + out.name + ' to your downloads.');
+          }
+        });
+        return;
+      }
+      notice('info', 'Saved ' + res.name + (res.how === 'download' ? ' to your downloads.' : '.'));
+    }).catch(function (err) {
+      notice('error', 'Export failed: ' + err.message);
+    });
+  }
+
+  function pickImport(mode) {
+    ui.importMode = mode;
+    qs('#import-dialog').close();
+    qs('#import-file').click();
+  }
+
+  function openResolve() {
+    var p = App.pendingPlay();
+    var dlg = qs('#resolve-dialog');
+    if (!p) { notice('info', 'Nothing is waiting to be resolved.'); return; }
+    qs('#resolve-hint').textContent =
+      'Last play: ' + describe(p).title + ' from ' + E.formatSpot(p.spot) +
+      '. Where did the ball end up?';
+    qs('#resolve-spot').value = '';
+    qs('#resolve-err').hidden = true;
+    dlg.showModal();
+    qs('#resolve-spot').focus();
+  }
+
+  function openEdit(id) {
+    var p = App.getPlay(id);
+    if (!p) return;
+    ui.editingId = id;
+    if (p.kind === 'pat') {
+      // A kicked PAT is two states; no point opening the whole form for it.
+      App.updatePlay(id, { patGood: !p.patGood });
+      notice('info', 'PAT is now ' + (App.getPlay(id).patGood ? 'good' : 'no good') + '.');
+      return;
+    }
+    editForm.setValues(p);
+    qs('#edit-title').textContent = 'Edit play' + (p.isTwoPoint ? ' (2-point try)' : '');
+    qs('#edit-dialog').showModal();
+  }
+
+  function onSaveEdit(attrs) {
+    if (!ui.editingId) return;
+    App.updatePlay(ui.editingId, attrs);
+    qs('#edit-dialog').close();
+    ui.editingId = null;
+    focusForEntry();
+  }
+
+  function onDeleteEdit() {
+    if (!ui.editingId) return;
+    App.deletePlay(ui.editingId);
+    qs('#edit-dialog').close();
+    ui.editingId = null;
+    focusForEntry();
+  }
+
+  // The drive's starting spot is the one field position the coach types that
+  // isn't a play, so it needs to be correctable like everything else.
+  function openDriveEdit(drive) {
+    ui.editingDriveId = drive.id;
+    qs('#drive-edit-spot').value = E.formatSpot(drive.startSpot);
+    qs('#drive-edit-err').hidden = true;
+    qs('#drive-edit-dialog').showModal();
+    qs('#drive-edit-spot').select();
+  }
+
+  function openGameDialog(mode) {
+    ui.gameDialogMode = mode;
+    var g = App.activeGame();
+    qs('#game-dialog-title').textContent = mode === 'new' ? 'New game' : 'Game details';
+    qs('#game-name').value = mode === 'new' ? '' : (g.name || '');
+    qs('#game-opponent').value = mode === 'new' ? '' : (g.opponent || '');
+    qs('#game-date').value = mode === 'new' ? new Date().toISOString().slice(0, 10) : (g.date || '');
+    qs('#game-dialog').showModal();
+    qs('#game-name').focus();
+  }
+
+  /* ================= render ================= */
+
+  function render() {
+    var c = App.computed;
+    var game = App.activeGame();
+    if (!c || !game) return;
+
+    renderGameSelect(game);
+    renderBanners(c);
+    renderStatus(c);
+    renderPanels(c);
+    renderTabs();
+    renderActiveTab(game, c);
+  }
+
+  function renderGameSelect(game) {
+    var sel = qs('#game-select');
+    D.clear(sel);
+    App.db.games.forEach(function (g) {
+      sel.appendChild(el('option', {
+        value: g.id,
+        selected: g.id === game.id,
+        text: (g.name || 'Untitled') + (g.opponent ? ' vs ' + g.opponent : '')
+      }));
+    });
+    sel.appendChild(el('option', { value: '__new', text: '+ New game...' }));
+    sel.onchange = function (ev) {
+      if (ev.target.value === '__new') { ev.target.value = game.id; openGameDialog('new'); }
+      else { App.selectGame(ev.target.value); ui.driveView = null; }
+    };
+    qs('#our-score').textContent = App.computed.score;
+  }
+
+  function renderBanners(c) {
+    var box = qs('#banners');
+    D.clear(box);
+
+    if (!FB.Store.state.persistent) {
+      box.appendChild(el('div', { class: 'banner error' }, [
+        el('span', { text: FB.Store.state.lastError || 'This browser will not save data here. Export before you close the tab.' })
+      ]));
+    }
+    if (c.current.pending) {
+      var p = App.pendingPlay();
+      box.appendChild(el('div', { class: 'banner pending' }, [
+        el('span', { text: 'Last play is waiting on the next snap spot' + (p ? ' (' + describe(p).title + ')' : '') + '.' }),
+        el('button', { type: 'button', class: 'btn btn-sm', onclick: openResolve }, ['Resolve it now'])
+      ]));
+    }
+    if (ui.notice) {
+      box.appendChild(el('div', { class: 'banner ' + ui.notice.kind }, [
+        el('span', { text: ui.notice.text }),
+        ui.notice.action ? el('button', {
+          type: 'button', class: 'btn btn-sm',
+          onclick: function () { ui.notice.action.fn(); }
+        }, [ui.notice.action.label]) : null
+      ]));
+    }
+  }
+
+  function renderStatus(c) {
+    var cur = c.current;
+    var last = c.drives.length ? c.drives[c.drives.length - 1] : null;
+    qs('#dd').textContent = (!last || cur.needsDrive)
+      ? '--'
+      : E.formatDownDistance(cur.down, cur.distance, cur.goalToGo);
+    qs('#ball-on').textContent = (!last || cur.ballFp == null || cur.needsDrive)
+      ? '—'
+      : E.formatSpot(cur.ballSpot);
+    qs('#drive-no').textContent = c.drives.length || '—';
+    qs('#drive-plays').textContent = last ? last.playCount : 0;
+    qs('#drive-net').textContent = last ? E.num(last.netYards) : 0;
+
+    var tag = qs('#drive-state');
+    if (!last) { tag.textContent = 'No drive yet'; tag.className = 'tag'; }
+    else if (last.ended) { tag.textContent = endLabel(last.ended); tag.className = 'tag ' + endClass(last.ended); }
+    else if (last.pending) { tag.textContent = 'Pending'; tag.className = 'tag warn'; }
+    else { tag.textContent = 'Live'; tag.className = 'tag accent'; }
+  }
+
+  function renderPanels(c) {
+    var cur = c.current;
+    var last = c.drives.length ? c.drives[c.drives.length - 1] : null;
+    var needConv = cur.needsConversion;
+
+    D.show(qs('#conversion-panel'), needConv && !ui.chartingTwoPoint);
+    D.show(qs('#drive-panel'), cur.needsDrive && !ui.chartingTwoPoint && !needConv);
+
+    // The form is always on screen. Hiding it outright made a first load look
+    // like the app had failed to build it.
+    var canLog = !cur.needsDrive || ui.chartingTwoPoint;
+    D.show(qs('#entry-panel'), true);
+    entryForm.setEnabled(canLog);
+
+    qs('#entry-title').textContent = ui.chartingTwoPoint ? '2-point try' : 'Log a play';
+    qs('#drive-panel-title').textContent = c.drives.length ? 'Start of drive ' + (c.drives.length + 1) : 'Start of drive';
+    qs('#drive-panel-hint').textContent = last && last.ended
+      ? 'Previous drive ended: ' + endLabel(last.ended).toLowerCase() + '. Enter the new starting yard line.'
+      : 'Enter the starting yard line. That is the only spot you ever type by hand.';
+
+    entryForm.setNote(noteForSpot(cur));
+    if (!cur.needsDrive && !entryForm.getSpotText() && cur.nextSpot != null) {
+      entryForm.setSpot(cur.nextSpot);
+    }
+
+    var pending = !!App.pendingPlay();
+    qs('#tb-resolve').disabled = !pending;
+    qs('#btn-undo').disabled = !(App.activeGame().plays || []).length && !c.drives.length;
+  }
+
+  function noteForSpot(cur) {
+    if (cur.needsDrive) return null;
+    if (cur.pending) return 'The last play is still open — this spot resolves it.';
+    if (cur.nextSpot != null) return 'Ball is on ' + E.formatSpot(cur.nextSpot) + '. Change it if the spot moved.';
+    return null;
+  }
+
+  function renderTabs() {
+    D.qsa('.tab').forEach(function (tab) {
+      tab.setAttribute('aria-selected', tab.dataset.tab === ui.tab ? 'true' : 'false');
+    });
+    D.qsa('.tabpanel').forEach(function (panel) {
+      panel.hidden = panel.id !== 'tab-' + ui.tab;
+    });
+  }
+
+  function renderActiveTab(game, c) {
+    if (ui.tab === 'drive') renderDriveTab(game, c);
+    else if (ui.tab === 'plays') renderPlaysTab(game, c);
+    else if (ui.tab === 'box') renderBoxTab(game, c);
+    else renderGamesTab();
+  }
+
+  /* ---------------- play rows ---------------- */
+
+  function describe(p) {
+    if (p.kind === 'pat') {
+      return { title: 'PAT kick — ' + (p.patGood ? 'GOOD' : 'no good'), sub: '', cls: 'is-conv' };
+    }
+    var bits = [];
+    var cls = '';
+    var title = p.playCall || '';
+
+    if (p.playType === 'run') { bits.push(p.isKneel ? 'Kneel' : 'Run'); if (p.carrier) bits.push('#' + p.carrier); }
+    else if (p.playType === 'pass') {
+      if (p.passOutcome === 'scramble') bits.push('Scramble');
+      else if (p.passOutcome === 'intercepted') bits.push('Pass intercepted');
+      else if (p.isSpike) bits.push('Spike');
+      else bits.push('Pass ' + (p.passOutcome || ''));
+      if (p.qb) bits.push('QB #' + p.qb);
+      if (p.receiver) bits.push('to #' + p.receiver);
+    } else if (p.playType === 'sack') { bits.push('Sack'); if (p.qb) bits.push('QB #' + p.qb); }
+    else if (p.playType === 'safety') { bits.push('Safety'); if (p.carrier) bits.push('#' + p.carrier); }
+    else if (p.playType === 'penalty') {
+      var pen = p.penalty || {};
+      bits.push('Penalty on ' + (pen.on === 'us' ? 'us' : 'them') + ' — ' + E.num(pen.yards) + ' yd');
+      if (pen.autoFirst) bits.push('auto 1st');
+      if (pen.beyondLOS) bits.push('beyond LOS');
+      cls = 'is-penalty';
+    }
+    if (p.turnover === 'fumble') { bits.push('FUMBLE LOST'); cls = 'is-turnover'; }
+    if (p.turnover === 'interception') cls = 'is-turnover';
+    if (p.isTwoPoint) { bits.push('2-pt try'); cls = 'is-conv'; }
+
+    if (!title) title = bits.shift() || 'Play';
+    var look = [p.formation, p.backfield, p.motion].filter(Boolean).join(' · ');
+    return {
+      title: title,
+      sub: [look, bits.join(' · ')].filter(Boolean).join('  —  '),
+      cls: cls
+    };
+  }
+
+  function playRow(p, row, number) {
+    var d = describe(p);
+    var cls = ['play', d.cls];
+    if (row && row.pending) cls.push('is-pending');
+    if (p.td) cls.push('is-td');
+    else if (row && row.firstDown) cls.push('is-first');
+
+    var yards = el('div', { class: 'p-yds' });
+    if (p.kind === 'pat') yards.textContent = '';
+    else if (!row) yards.textContent = '';
+    else if (row.pending) { yards.textContent = 'pending'; yards.className = 'p-yds pend'; }
+    else {
+      yards.textContent = (row.yards > 0 ? '+' : '') + E.num(row.yards);
+      if (row.yards < 0) yards.className = 'p-yds neg';
+    }
+
+    var flags = [];
+    if (p.td) flags.push('TD');
+    else if (row && row.firstDown) flags.push('1ST');
+    if (row && row.halved) flags.push('½');
+
+    return el('button', {
+      type: 'button', class: cls.join(' '), dataset: { id: p.id },
+      onclick: function () { openEdit(p.id); }
+    }, [
+      el('div', { class: 'p-no', text: number == null ? '' : String(number) }),
+      el('div', {
+        class: 'p-dd',
+        text: (p.kind === 'pat' || p.isTwoPoint || !row) ? '' :
+          E.formatDownDistance(row.down, row.distance, row.goalToGo)
+      }),
+      el('div', { class: 'p-spot', text: p.kind === 'pat' ? '' : E.formatSpot(p.spot) }),
+      el('div', { class: 'p-desc' }, [
+        el('div', { class: 'call', text: d.title }),
+        d.sub ? el('div', { class: 'sub', text: d.sub }) : null
+      ]),
+      yards,
+      el('div', { class: 'p-flags', text: flags.join(' ') })
+    ]);
+  }
+
+  function convButton(label, fn) {
+    return el('button', { type: 'button', class: 'btn btn-sm', onclick: fn }, [label]);
+  }
+
+  function endLabel(reason) {
+    return ({
+      td: 'Touchdown', downs: 'Turnover on downs', fumble: 'Fumble lost',
+      interception: 'Interception', safety: 'Safety', punt: 'Punt',
+      'missed-fg': 'Missed FG', half: 'End of half', game: 'End of game'
+    })[reason] || reason;
+  }
+
+  function endClass(reason) {
+    if (reason === 'td') return 'good';
+    if (reason === 'fumble' || reason === 'interception' || reason === 'downs' || reason === 'safety') return 'bad';
+    return '';
+  }
+
+  function playsOfDrive(game, driveId) {
+    return (game.plays || []).filter(function (p) { return p.driveId === driveId; });
+  }
+
+  function driveBlock(game, c, driveComputed, driveIndex, opts) {
+    opts = opts || {};
+    var drive = driveComputed.drive;
+    var frag = document.createDocumentFragment();
+
+    var head = el('div', { class: 'drive-head' }, [
+      el('h3', { text: 'Drive ' + (driveIndex + 1) }),
+      el('button', {
+        type: 'button', class: 'btn btn-sm', title: 'Correct the starting spot',
+        onclick: function () { openDriveEdit(drive); }
+      }, ['from ' + E.formatSpot(drive.startSpot)]),
+      el('span', { class: 'meta', text: driveComputed.playCount + ' plays' }),
+      el('span', { class: 'meta', text: E.num(driveComputed.netYards) + ' yds' }),
+      driveComputed.ended
+        ? el('span', { class: 'tag ' + endClass(driveComputed.ended), text: endLabel(driveComputed.ended) })
+        : el('span', { class: 'tag accent', text: 'In progress' }),
+      driveComputed.points ? el('span', { class: 'tag good', text: driveComputed.points + ' pts' }) : null
+    ]);
+    if (opts.controls) head.appendChild(opts.controls);
+    frag.appendChild(head);
+
+    // A touchdown whose extra point never got entered would otherwise leave
+    // the score short for the rest of the game, with no way back to it.
+    if (driveComputed.needsConversion) {
+      frag.appendChild(el('div', { class: 'conv-row' }, [
+        el('span', { class: 'meta', text: 'No extra point recorded for this touchdown:' }),
+        convButton('PAT good', function () { App.addPat(true, drive.id); }),
+        convButton('PAT no good', function () { App.addPat(false, drive.id); }),
+        convButton('2-pt good', function () { App.addTwoPointResult(true, drive.id); }),
+        convButton('2-pt failed', function () { App.addTwoPointResult(false, drive.id); })
+      ]));
+    }
+
+    var list = el('div', { class: 'playlist' });
+    var plays = playsOfDrive(game, drive.id);
+    var n = 0;
+    plays.forEach(function (p) {
+      var row = c.rows[p.id];
+      if (E.isLive(p)) n++;
+      list.appendChild(playRow(p, row, E.isLive(p) ? n : null));
+    });
+    if (!plays.length) {
+      list.appendChild(el('div', { class: 'empty', text: 'No plays charted on this drive yet.' }));
+    }
+    frag.appendChild(list);
+    if (driveComputed.ended) {
+      frag.appendChild(el('div', { class: 'drive-end', text: '— ' + endLabel(driveComputed.ended) + ' —' }));
+    }
+    return frag;
+  }
+
+  function renderDriveTab(game, c) {
+    var host = qs('#tab-drive');
+    D.clear(host);
+    if (!c.drives.length) {
+      host.appendChild(el('div', { class: 'empty', text: 'Start a drive to begin charting.' }));
+      return;
+    }
+    var idx = ui.driveView == null ? c.drives.length - 1 : Math.min(ui.driveView, c.drives.length - 1);
+
+    var controls = el('div', { class: 'row', style: 'margin-left:auto' }, [
+      el('button', {
+        type: 'button', class: 'btn btn-sm', disabled: idx <= 0,
+        onclick: function () { ui.driveView = idx - 1; render(); }
+      }, ['‹ Prev']),
+      el('button', {
+        type: 'button', class: 'btn btn-sm', disabled: idx >= c.drives.length - 1,
+        onclick: function () { ui.driveView = idx + 1; render(); }
+      }, ['Next ›'])
+    ]);
+
+    host.appendChild(driveBlock(game, c, c.drives[idx], idx, { controls: controls }));
+
+    var d = c.drives[idx];
+    if (d.drive.manualEnd) {
+      host.appendChild(el('div', { class: 'row gap-top' }, [
+        el('button', {
+          type: 'button', class: 'btn btn-sm',
+          onclick: function () { App.reopenDrive(); }
+        }, ['Undo "' + endLabel(d.drive.manualEnd.reason) + '"'])
+      ]));
+    }
+  }
+
+  function renderPlaysTab(game, c) {
+    var host = qs('#tab-plays');
+    D.clear(host);
+    if (!c.drives.length) {
+      host.appendChild(el('div', { class: 'empty', text: 'Nothing charted yet.' }));
+      return;
+    }
+    c.drives.forEach(function (dc, i) { host.appendChild(driveBlock(game, c, dc, i)); });
+  }
+
+  /* ---------------- box score ---------------- */
+
+  function statTable(title, headers, keys, data) {
+    var nums = Object.keys(data).sort(IO.byNumber);
+    var body = el('tbody');
+    var totalsRow = {};
+    nums.forEach(function (n) {
+      var s = data[n];
+      var cells = [el('td', { text: '#' + n })];
+      keys.forEach(function (k) {
+        var v = typeof k === 'function' ? k(s) : s[k];
+        if (typeof k === 'string') totalsRow[k] = E.round1((totalsRow[k] || 0) + s[k]);
+        cells.push(el('td', { text: typeof v === 'number' ? E.num(v) : v }));
+      });
+      body.appendChild(el('tr', {}, cells));
+    });
+    if (!nums.length) {
+      body.appendChild(el('tr', {}, [el('td', { colspan: headers.length + 1, text: 'None' })]));
+    }
+    var foot = null;
+    if (nums.length > 1) {
+      var fcells = [el('td', { text: 'Team' })];
+      keys.forEach(function (k) {
+        var v = typeof k === 'function' ? k(totalsRow) : totalsRow[k];
+        fcells.push(el('td', { text: v == null || (typeof v === 'number' && isNaN(v)) ? '' : (typeof v === 'number' ? E.num(v) : v) }));
+      });
+      foot = el('tfoot', {}, [el('tr', {}, fcells)]);
+    }
+    return el('div', { class: 'statblock' }, [
+      el('h2', { text: title }),
+      el('div', { class: 'table-wrap' }, [
+        el('table', { class: 'stats' }, [
+          el('thead', {}, [el('tr', {}, [el('th', { text: '#' })].concat(headers.map(function (h) {
+            return el('th', { text: h });
+          })))]),
+          body,
+          foot
+        ])
+      ])
+    ]);
+  }
+
+  function boxTables(box) {
+    var frag = document.createDocumentFragment();
+    frag.appendChild(statTable('Passing', ['Comp', 'Att', 'Yds', 'TD', 'INT', 'Sk'],
+      ['comp', 'att', 'yards', 'td', 'int', 'sacks'], box.passing));
+    frag.appendChild(statTable('Rushing', ['Car', 'Yds', 'TD', 'Avg'],
+      ['carries', 'yards', 'td', function (s) { return s.carries ? E.round1(s.yards / s.carries) : ''; }],
+      box.rushing));
+    frag.appendChild(statTable('Receiving', ['Rec', 'Yds', 'TD', 'Avg'],
+      ['rec', 'yards', 'td', function (s) { return s.rec ? E.round1(s.yards / s.rec) : ''; }],
+      box.receiving));
+    return frag;
+  }
+
+  function teamTable(title, totals, score) {
+    var rows = [
+      ['Points', score],
+      ['Plays', totals.plays],
+      ['Total yards', E.num(totals.yards)],
+      ['Yards per play', totals.plays ? E.num(E.round1(totals.yards / totals.plays)) : '0'],
+      ['First downs', totals.firstDowns],
+      ['Drives', totals.drives],
+      ['Touchdowns', totals.touchdowns]
+    ];
+    return el('div', { class: 'statblock' }, [
+      el('h2', { text: title }),
+      el('div', { class: 'table-wrap' }, [
+        el('table', { class: 'stats' }, [
+          el('tbody', {}, rows.map(function (r) {
+            return el('tr', {}, [el('td', { text: r[0] }), el('td', { text: String(r[1]) })]);
+          }))
+        ])
+      ])
+    ]);
+  }
+
+  function renderBoxTab(game, c) {
+    var host = qs('#tab-box');
+    D.clear(host);
+    host.appendChild(el('div', { class: 'row wrap', style: 'margin-bottom:.8rem' }, [
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { runExport(App.exportBoxCsv()); } },
+        ['Export box score CSV']),
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { runExport(App.exportPlaysCsv()); } },
+        ['Export play chart CSV'])
+    ]));
+    host.appendChild(boxTables(c.box));
+    host.appendChild(teamTable('Team', c.totals, c.score));
+  }
+
+  /* ---------------- games / season ---------------- */
+
+  function renderGamesTab() {
+    var host = qs('#tab-games');
+    D.clear(host);
+    var season = App.seasonSummary();
+    var active = App.activeGame();
+
+    host.appendChild(el('div', { class: 'row wrap', style: 'margin-bottom:.8rem' }, [
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { openGameDialog('new'); } }, ['New game']),
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { openGameDialog('edit'); } }, ['Edit this game']),
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { runExport(App.exportData()); } }, ['Export all games'])
+    ]));
+
+    var body = el('tbody');
+    season.games.forEach(function (entry) {
+      var g = entry.game, cc = entry.computed;
+      body.appendChild(el('tr', {}, [
+        el('td', {}, [
+          el('button', {
+            type: 'button', class: 'btn btn-sm',
+            onclick: function () { App.selectGame(g.id); ui.driveView = null; }
+          }, [(g.name || 'Untitled') + (g.id === active.id ? '  •' : '')])
+        ]),
+        el('td', { text: g.opponent || '—' }),
+        el('td', { text: g.date || '' }),
+        el('td', { text: String(cc.score) }),
+        el('td', { text: String(cc.totals.plays) }),
+        el('td', { text: E.num(cc.totals.yards) }),
+        el('td', {}, [
+          el('button', {
+            type: 'button', class: 'btn btn-sm',
+            onclick: function () {
+              if (global.confirm('Delete "' + (g.name || 'Untitled') + '" and everything charted in it?')) App.deleteGame(g.id);
+            }
+          }, ['Delete'])
+        ])
+      ]));
+    });
+
+    host.appendChild(el('div', { class: 'statblock' }, [
+      el('h2', { text: 'Games' }),
+      el('div', { class: 'table-wrap' }, [
+        el('table', { class: 'stats' }, [
+          el('thead', {}, [el('tr', {}, ['Game', 'Opponent', 'Date', 'Pts', 'Plays', 'Yds', ''].map(function (h) {
+            return el('th', { text: h });
+          }))]),
+          body
+        ])
+      ])
+    ]));
+
+    host.appendChild(el('h2', { text: 'Season totals — all games' }));
+    host.appendChild(boxTables(season.box));
+    host.appendChild(teamTable('Season team totals', season.totals, season.totals.points));
+  }
+
+  /* ---------------- help ---------------- */
+
+  function openHelp() {
+    var body = qs('#help-body');
+    body.className = 'dlg-body help-body';
+    body.innerHTML = [
+      '<h3>Yard lines</h3>',
+      '<p>Type them exactly like the paper chart: <kbd>-25</kbd> is our own 25, <kbd>+40</kbd> is their 40, ',
+      '<kbd>50</kbd> is midfield. <kbd>o25</kbd> and <kbd>opp40</kbd> work too. A bare number other than 50 is ',
+      'refused on purpose &mdash; guessing the side would wreck every yardage number after it.</p>',
+
+      '<h3>The only two numbers you type</h3>',
+      '<p>The starting spot of each drive, and the snap spot of each play. Yards gained, down and distance are ',
+      'all computed: a play stays <em>pending</em> until the next snap spot says where the ball ended up.</p>',
+
+      '<h3>Keyboard</h3>',
+      '<ul>',
+      '<li><kbd>Tab</kbd> walks the form in the order you fill it in; <kbd>Enter</kbd> logs the play from any field.</li>',
+      '<li>On the play-type dropdown: arrow keys move through it, or press one letter to jump ',
+      'straight to a type &mdash; <kbd>R</kbd>un, <kbd>P</kbd>ass, <kbd>S</kbd>ack, penalty ',
+      '<kbd>F</kbd>lag, <kbd>T</kbd>urnover, safet<kbd>Y</kbd>. Then <kbd>Tab</kbd> to the number.</li>',
+      '<li><kbd>Alt</kbd>+<kbd>D</kbd> start drive &middot; <kbd>Alt</kbd>+<kbd>P</kbd> punt &middot; ',
+      '<kbd>Alt</kbd>+<kbd>K</kbd> kneel &middot; <kbd>Alt</kbd>+<kbd>S</kbd> spike &middot; ',
+      '<kbd>Alt</kbd>+<kbd>H</kbd> end half &middot; <kbd>Alt</kbd>+<kbd>Z</kbd> undo &middot; ',
+      '<kbd>Alt</kbd>+<kbd>E</kbd> export &middot; <kbd>Alt</kbd>+<kbd>R</kbd> resolve the last play &middot; ',
+      '<kbd>Alt</kbd>+<kbd>T</kbd> toggle TD.</li>',
+      '<li><kbd>Esc</kbd> clears the form without logging anything.</li>',
+      '</ul>',
+      '<p class="hint">Firefox uses <kbd>Alt</kbd>+<kbd>Shift</kbd> for these; macOS uses <kbd>Ctrl</kbd>+<kbd>Alt</kbd>.</p>',
+
+      '<h3>Play types</h3>',
+      '<ul>',
+      '<li><b>Sack</b> is a rush attempt for the QB at a loss plus a sack in the passing line &mdash; not a pass ',
+      'attempt. Chart <b>intentional grounding as a sack</b>, spotted at the foul.</li>',
+      '<li><b>Scramble</b> counts as a rush for the QB, never a pass attempt.</li>',
+      '<li><b>Penalty</b> repeats the down unless it is an automatic first down. Half the distance to the goal is ',
+      'enforced for you. By default the play is wiped and nobody is credited; tick <b>Beyond the LOS</b> to chart ',
+      'the real play underneath and apply the flag on top.</li>',
+      '<li><b>Turnover on downs</b> is never something you pick &mdash; a 4th-down play that comes up short ends ',
+      'the drive by itself once it resolves.</li>',
+      '<li>A <b>2-point try</b> is charted like any snap and never touches the box score.</li>',
+      '</ul>',
+
+      '<h3>Fixing a mistake</h3>',
+      '<p>Tap any play in the list to edit every field on it. Everything after it in that drive recomputes ',
+      'immediately. A drive is a clean boundary &mdash; a fix never leaks into the next one. If you type a down, ',
+      'distance or yardage by hand it is kept, and the automatic logic picks back up on the next play.</p>',
+
+      '<h3>Your data</h3>',
+      '<p>Everything lives in this browser on this machine, with no network of any kind. That means it does ',
+      '<em>not</em> travel with the USB drive &mdash; <b>Export</b> after every game and save the JSON onto the ',
+      'drive, then <b>Import</b> it on the next laptop.</p>'
+    ].join('');
+    qs('#help-dialog').showModal();
+  }
+
+  /* ================= go ================= */
+
+  /*
+   * If start-up throws, say so on the page. Silently leaving a built-but-empty
+   * panel behind is indistinguishable from a broken app.
+   */
+  function safeBoot() {
+    try {
+      boot();
+    } catch (err) {
+      var box = document.getElementById('banners');
+      if (box) {
+        box.appendChild(el('div', { class: 'banner error' }, [
+          el('span', { text: 'The chart could not start: ' + (err && err.message ? err.message : err) })
+        ]));
+      }
+      throw err;
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', safeBoot);
+  else safeBoot();
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* ==========================================================
+ * tests.js
+ * ========================================================== */
+/*
+ * tests.js — runs in node (`node js/tests.js`) and in the browser
+ * (open tests.html). Every expected number below is hand-checked against the
+ * field-position formulas, not read off the implementation.
+ */
+;(function (global, factory) {
+  var deps;
+  if (typeof module === 'object' && module.exports) {
+    deps = { Engine: require('./engine.js'), Model: require('./model.js') };
+    module.exports = factory(deps);
+    if (require.main === module) module.exports.run(function (line) { console.log(line); });
+  } else {
+    global.FB = global.FB || {};
+    global.FB.Tests = factory({ Engine: global.FB.Engine, Model: global.FB.Model });
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (deps) {
+  'use strict';
+  var E = deps.Engine, M = deps.Model;
+
+  var tests = [];
+  function test(name, fn) { tests.push({ name: name, fn: fn }); }
+
+  function fail(msg) { throw new Error(msg); }
+  function eq(actual, expected, what) {
+    if (actual !== expected) fail((what || 'value') + ': expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual));
+  }
+  function near(actual, expected, what) {
+    if (Math.abs(Number(actual) - Number(expected)) > 1e-6) {
+      fail((what || 'value') + ': expected ' + expected + ', got ' + actual);
+    }
+  }
+  function ok(cond, what) { if (!cond) fail(what || 'expected true'); }
+
+  /* ----- tiny game builder ------------------------------------------ */
+
+  function Builder() {
+    this.game = M.makeGame({ name: 'Test', opponent: 'Test' });
+    this.drive = null;
+  }
+  Builder.prototype.startDrive = function (spot) {
+    this.drive = M.makeDrive({ gameId: this.game.id, startSpot: spot });
+    this.game.drives.push(this.drive);
+    return this;
+  };
+  Builder.prototype.endDrive = function (reason) {
+    this.drive.manualEnd = { reason: reason, at: M.nowIso() };
+    return this;
+  };
+  Builder.prototype.play = function (attrs) {
+    attrs.gameId = this.game.id;
+    attrs.driveId = this.drive.id;
+    var p = M.makePlay(attrs);
+    this.game.plays.push(p);
+    return p;
+  };
+  Builder.prototype.pat = function (good) {
+    var p = M.makePat({ gameId: this.game.id, driveId: this.drive.id, good: good });
+    this.game.plays.push(p);
+    return p;
+  };
+  Builder.prototype.compute = function () { return E.computeGame(this.game); };
+
+  function dd(row) { return E.formatDownDistance(row.down, row.distance, row.goalToGo); }
+
+  /* ----- field position --------------------------------------------- */
+
+  test('fieldPos matches the paper convention', function () {
+    eq(E.fieldPos(-13), 13, 'our own 13');
+    eq(E.fieldPos(35), 65, 'their 35');
+    eq(E.fieldPos(-50), 50, 'midfield');
+    eq(E.fieldPos(50), 50, 'midfield from the other sign');
+    eq(E.fieldPos(-1), 1, 'our 1');
+    eq(E.fieldPos(1), 99, 'their 1');
+  });
+
+  test('toSigned round-trips', function () {
+    eq(E.toSigned(13), -13);
+    eq(E.toSigned(65), 35);
+    eq(E.toSigned(50), -50);
+    eq(E.formatSpot(-13), '-13');
+    eq(E.formatSpot(35), '+35');
+    eq(E.formatSpot(-50), '50');
+  });
+
+  test('parseSpot accepts coach shorthand and refuses ambiguity', function () {
+    eq(E.parseSpot('-13').value, -13);
+    eq(E.parseSpot('+35').value, 35);
+    eq(E.parseSpot('o13').value, -13);
+    eq(E.parseSpot('opp35').value, 35);
+    eq(E.parseSpot('35+').value, 35);
+    eq(E.parseSpot('50').value, -50);
+    eq(E.parseSpot('35').ok, false, 'bare number is ambiguous');
+    eq(E.parseSpot('').ok, false);
+    eq(E.parseSpot('+51').ok, false, 'past midfield on the wrong side');
+  });
+
+  /* ----- penalty half-the-distance ----------------------------------- */
+
+  test('half the distance to the goal is enforced automatically', function () {
+    // Our own 6 (fp 6), 10-yard foul on us: remaining 6, half 3 -> 3 yards.
+    var a = E.penaltyDelta(6, 'us', 10);
+    near(a.delta, -3, 'capped to half the distance');
+    eq(a.halved, true);
+    // Their 8 (fp 92), 15-yard foul on them: remaining 8, half 4 -> 4 yards.
+    var b = E.penaltyDelta(92, 'them', 15);
+    near(b.delta, 4);
+    eq(b.halved, true);
+    // Normal case, no cap.
+    var c = E.penaltyDelta(40, 'us', 10);
+    near(c.delta, -10);
+    eq(c.halved, false);
+  });
+
+  /* ----- the hand-checked drive -------------------------------------- *
+   * Ball on our own 25. Every number below was worked out on paper first.
+   * -------------------------------------------------------------------- */
+
+  test('full drive: run, pass, penalty, incomplete, sack, pass, TD, PAT', function () {
+    var b = new Builder();
+    b.startDrive(-25);                                   // 1st & 10 at -25 (fp 25, LTG 35)
+    b.play({ spot: -25, playType: 'run', carrier: '22', formation: 'Trips Rt' });
+    b.play({ spot: -31, playType: 'pass', passOutcome: 'complete', qb: '12', receiver: '80' });
+    b.play({ spot: -45, playType: 'penalty', penalty: { on: 'us', yards: 10 } });
+    b.play({ spot: -35, playType: 'pass', passOutcome: 'incomplete', qb: '12' });
+    b.play({ spot: -35, playType: 'sack', qb: '12' });
+    b.play({ spot: -28, playType: 'pass', passOutcome: 'complete', qb: '12', receiver: '11' });
+    b.play({ spot: 40, playType: 'run', carrier: '22', td: true });
+    b.pat(true);
+
+    var g = b.compute();
+    var d = g.drives[0];
+    var r = d.rows;
+    eq(r.length, 7, 'seven live plays (the PAT is not one)');
+
+    // 1) run from -25, next snap -31 -> fp 31-25 = +6. 1st & 10.
+    eq(dd(r[0]), '1st & 10'); near(r[0].yards, 6, 'run yards');
+    // 2) pass from -31 (2nd & 4), next snap -45 -> fp 45-31 = +14 -> first down.
+    eq(dd(r[1]), '2nd & 4'); near(r[1].yards, 14); eq(r[1].firstDown, true);
+    // 3) holding on us at -45 (1st & 10): 10 back to -35, down REPEATS.
+    eq(dd(r[2]), '1st & 10'); near(r[2].yards, -10); eq(r[2].firstDown, false);
+    // 4) incomplete at -35: LTG is still fp 55, so 55-35 = 20 to go on 1st.
+    eq(dd(r[3]), '1st & 20'); near(r[3].yards, 0);
+    // 5) sack at -35 on 2nd & 20, next snap -28 -> 28-35 = -7.
+    eq(dd(r[4]), '2nd & 20'); near(r[4].yards, -7);
+    // 6) pass at -28 on 3rd: 55-28 = 27 to go. Next snap +40 -> 60-28 = +32.
+    eq(dd(r[5]), '3rd & 27'); near(r[5].yards, 32); eq(r[5].firstDown, true);
+    // 7) TD run from +40 (fp 60) -> 100-60 = 40 yards, drive over.
+    eq(dd(r[6]), '1st & 10'); near(r[6].yards, 40); eq(r[6].driveEnd, 'td');
+
+    eq(d.ended, 'td');
+    eq(d.points, 7, 'TD plus a good PAT');
+    eq(g.score, 7);
+    near(d.netYards, 6 + 14 - 10 + 0 - 7 + 32 + 40, 'net drive yardage');
+
+    // Box score, hand-tallied.
+    var box = g.box;
+    eq(box.rushing['22'].carries, 2); near(box.rushing['22'].yards, 46); eq(box.rushing['22'].td, 1);
+    eq(box.rushing['12'].carries, 1, 'the sack is a QB rush attempt');
+    near(box.rushing['12'].yards, -7);
+    eq(box.passing['12'].att, 3, 'two completions and an incompletion');
+    eq(box.passing['12'].comp, 2);
+    near(box.passing['12'].yards, 46);
+    eq(box.passing['12'].sacks, 1);
+    eq(box.passing['12'].td, 0, 'the TD was a run');
+    eq(box.receiving['80'].rec, 1); near(box.receiving['80'].yards, 14);
+    eq(box.receiving['11'].rec, 1); near(box.receiving['11'].yards, 32);
+    eq(g.totals.firstDowns, 2);
+  });
+
+  /* ----- down & distance edge cases ---------------------------------- */
+
+  test('goal to go caps the distance at the goal line', function () {
+    var b = new Builder();
+    b.startDrive(8);                         // their 8: fp 92, marker capped at 100
+    b.play({ spot: 8, playType: 'run', carrier: '5' });
+    b.play({ spot: 3, playType: 'run', carrier: '5' });
+    b.play({ spot: 1, playType: 'run', carrier: '5', td: true });
+    var d = b.compute().drives[0];
+    eq(d.rows[0].goalToGo, true);
+    eq(dd(d.rows[0]), '1st & Goal');
+    near(d.rows[0].distance, 8, 'eight to the end zone, not ten');
+    near(d.rows[0].yards, 5);
+    eq(dd(d.rows[1]), '2nd & Goal');
+    near(d.rows[1].distance, 3);
+    eq(dd(d.rows[2]), '3rd & Goal');
+    near(d.rows[2].yards, 1, 'TD from their 1 is worth exactly one yard');
+  });
+
+  test('outside the 10 a first down is still ten yards, not goal to go', function () {
+    var b = new Builder();
+    b.startDrive(12);                        // their 12: fp 88, marker at their 2
+    b.play({ spot: 12, playType: 'run', carrier: '5' });
+    b.play({ spot: 3, playType: 'run', carrier: '5' });
+    b.play({ spot: 2, playType: 'run', carrier: '5' });
+    b.play({ spot: 2, playType: 'run', carrier: '5', td: true });
+    var d = b.compute().drives[0];
+    eq(d.rows[0].goalToGo, false);
+    eq(dd(d.rows[0]), '1st & 10', 'the marker is their 2, so ten to go');
+    near(d.rows[0].yards, 9);
+    eq(dd(d.rows[1]), '2nd & 1', 'nine yards is not a first down here');
+    near(d.rows[1].yards, 1);
+    eq(d.rows[1].firstDown, true, 'the 2-yard line is the line to gain');
+    eq(dd(d.rows[2]), '1st & Goal', 'a new set inside the 10 is goal to go');
+    near(d.rows[2].distance, 2);
+  });
+
+  test('a new first down inside the 10 is goal to go', function () {
+    var b = new Builder();
+    b.startDrive(20);                         // fp 80, LTG 90
+    b.play({ spot: 20, playType: 'run', carrier: '5' });   // to their 6 -> fp 94
+    b.play({ spot: 6, playType: 'run', carrier: '5' });
+    var d = b.compute().drives[0];
+    eq(d.rows[0].firstDown, true);
+    eq(dd(d.rows[1]), '1st & Goal');
+    near(d.rows[1].distance, 6);
+  });
+
+  test('a standalone penalty repeats the down, an automatic first resets it', function () {
+    var b = new Builder();
+    b.startDrive(-20);
+    b.play({ spot: -20, playType: 'run', carrier: '3' });             // to -24: +4, 2nd & 6
+    b.play({ spot: -24, playType: 'penalty', penalty: { on: 'us', yards: 5 } });
+    b.play({ spot: -19, playType: 'penalty', penalty: { on: 'them', yards: 5, autoFirst: true } });
+    b.play({ spot: -24, playType: 'run', carrier: '3' });
+    var d = b.compute().drives[0];
+    eq(dd(d.rows[1]), '2nd & 6', 'penalty is charted on the down it happened');
+    eq(dd(d.rows[2]), '2nd & 11', 'still 2nd down after a 5-yard foul on us');
+    eq(dd(d.rows[3]), '1st & 10', 'automatic first down');
+    near(d.rows[3].distance, 10);
+  });
+
+  test('a defensive penalty past the marker is a first down', function () {
+    var b = new Builder();
+    b.startDrive(-20);                                   // LTG fp 30
+    b.play({ spot: -20, playType: 'run', carrier: '3' }); // to -28: +8 -> 2nd & 2
+    b.play({ spot: -28, playType: 'penalty', penalty: { on: 'them', yards: 5 } });
+    b.play({ spot: -33, playType: 'run', carrier: '3' });
+    var d = b.compute().drives[0];
+    eq(dd(d.rows[1]), '2nd & 2');
+    eq(d.rows[1].firstDown, true, 'the 5 yards got past the line to gain');
+    eq(dd(d.rows[2]), '1st & 10');
+  });
+
+  test('turnover on downs is detected, never selected', function () {
+    var b = new Builder();
+    b.startDrive(-30);
+    b.play({ spot: -30, playType: 'run', carrier: '3' });      // +1 -> 2nd & 9
+    b.play({ spot: -31, playType: 'run', carrier: '3' });      // +1 -> 3rd & 8
+    b.play({ spot: -32, playType: 'pass', passOutcome: 'incomplete', qb: '12' }); // 4th & 8
+    b.play({ spot: -32, playType: 'run', carrier: '3' });      // +2, short
+    b.play({ spot: -34, playType: 'run', carrier: '3' });      // next drive's spot never comes
+    var g = b.compute();
+    var d = g.drives[0];
+    eq(dd(d.rows[3]), '4th & 8');
+    eq(d.rows[3].driveEnd, 'downs');
+    eq(d.ended, 'downs');
+  });
+
+  test('a pending play stops the chain until it resolves', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'run', carrier: '3' });
+    var g = b.compute();
+    eq(g.drives[0].rows[0].pending, true);
+    eq(g.drives[0].rows[0].yards, null);
+    eq(g.current.pending, true);
+    eq(g.current.nextSpot, null, 'no auto-fill while the ball is unresolved');
+    eq(g.box.rushing['3'], undefined, 'pending plays credit nothing yet');
+  });
+
+  test('resolve-last-play with a final spot closes out the drive', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    var p = b.play({ spot: -25, playType: 'run', carrier: '3' });
+    p.endSpot = -34;                                   // resolved by hand
+    b.endDrive('punt');
+    var g = b.compute();
+    near(g.drives[0].rows[0].yards, 9);
+    eq(g.drives[0].ended, 'punt');
+    eq(g.box.rushing['3'].carries, 1);
+    near(g.box.rushing['3'].yards, 9);
+  });
+
+  test('an incomplete pass leaves the ball where it was', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'pass', passOutcome: 'incomplete', qb: '12' });
+    var g = b.compute();
+    near(g.drives[0].rows[0].yards, 0);
+    eq(g.current.nextSpot, -25, 'next snap auto-fills with the same spot');
+    eq(g.current.pending, false);
+    eq(E.formatDownDistance(g.current.down, g.current.distance, g.current.goalToGo), '2nd & 10');
+  });
+
+  /* ----- play types and the box score --------------------------------- */
+
+  test('a scramble is a rush for the QB, not a pass attempt', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'pass', passOutcome: 'scramble', qb: '12' });
+    b.play({ spot: -33, playType: 'run', carrier: '3' });
+    var g = b.compute();
+    near(g.drives[0].rows[0].yards, 8);
+    eq(g.box.passing['12'], undefined, 'no pass attempt charged');
+    eq(g.box.rushing['12'].carries, 1);
+    near(g.box.rushing['12'].yards, 8);
+  });
+
+  test('a sack (and intentional grounding charted as one) is a QB rush plus a sack', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'sack', qb: '12' });
+    b.play({ spot: -18, playType: 'run', carrier: '3' });
+    var g = b.compute();
+    near(g.drives[0].rows[0].yards, -7);
+    eq(g.box.passing['12'].att, 0, 'a sack is not a pass attempt');
+    eq(g.box.passing['12'].sacks, 1);
+    eq(g.box.rushing['12'].carries, 1);
+    near(g.box.rushing['12'].yards, -7);
+  });
+
+  test('a line-of-scrimmage penalty wipes the play stats', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({
+      spot: -25, playType: 'penalty', carrier: '3',
+      penalty: { on: 'us', yards: 10, beyondLOS: false }
+    });
+    b.play({ spot: -15, playType: 'run', carrier: '3' });
+    b.play({ spot: -20, playType: 'run', carrier: '3' });
+    var g = b.compute();
+    eq(g.box.rushing['3'].carries, 1, 'only the resolved run counts, not the wiped play');
+    near(g.box.rushing['3'].yards, 5);
+    near(g.drives[0].rows[0].yards, -10, 'the ball still moves');
+    eq(g.drives[0].rows[0].statYards, 0, 'nobody is credited');
+  });
+
+  test('a beyond-the-LOS penalty keeps the play stats and moves the ball on top', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({
+      spot: -25, playType: 'penalty', qb: '12', receiver: '80',
+      penalty: {
+        on: 'us', yards: 10, beyondLOS: true,
+        underlyingType: 'pass', creditedYards: 15
+      }
+    });
+    var g = b.compute();
+    var row = g.drives[0].rows[0];
+    near(row.statYards, 15, 'the catch is credited in full');
+    near(row.yards, 5, '+15 to fp 40, then 10 back to fp 30');
+    eq(g.box.passing['12'].comp, 1);
+    near(g.box.passing['12'].yards, 15);
+    eq(g.box.receiving['80'].rec, 1);
+    eq(E.formatDownDistance(g.current.down, g.current.distance, g.current.goalToGo), '2nd & 5',
+      'the underlying play consumed the down');
+  });
+
+  test('turnovers end the drive', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'pass', passOutcome: 'intercepted', qb: '12', turnover: 'interception' });
+    var g = b.compute();
+    near(g.drives[0].rows[0].yards, 0, 'no yardage on a pick, by convention');
+    eq(g.drives[0].ended, 'interception');
+    eq(g.box.passing['12'].att, 1);
+    eq(g.box.passing['12'].comp, 0);
+    eq(g.box.passing['12'].int, 1);
+    eq(g.current.needsDrive, true);
+  });
+
+  test('a lost fumble keeps the real stats and then ends the drive', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    var p = b.play({ spot: -25, playType: 'run', carrier: '22', turnover: 'fumble' });
+    p.endSpot = -33;
+    var g = b.compute();
+    near(g.box.rushing['22'].yards, 8, 'the 8 yards still happened');
+    eq(g.box.rushing['22'].carries, 1);
+    eq(g.drives[0].ended, 'fumble');
+  });
+
+  test('a safety ends the drive from our own end zone', function () {
+    var b = new Builder();
+    b.startDrive(-4);
+    b.play({ spot: -3, playType: 'safety', carrier: '22' });
+    var g = b.compute();
+    near(g.drives[0].rows[0].yards, -3);
+    eq(g.drives[0].ended, 'safety');
+  });
+
+  test('a spike is an incompletion, a kneel resolves like a run', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'pass', passOutcome: 'incomplete', qb: '12', isSpike: true });
+    b.play({ spot: -25, playType: 'run', carrier: '12', isKneel: true });
+    var last = b.play({ spot: -23, playType: 'run', carrier: '12', isKneel: true });
+    last.endSpot = -21;                      // resolved by hand: the game ended here
+    b.endDrive('game');
+    var g = b.compute();
+    eq(g.box.passing['12'].att, 1, 'the spike is a pass attempt');
+    eq(g.box.passing['12'].comp, 0);
+    near(g.drives[0].rows[1].yards, -2, 'kneel loss comes from the next spot');
+    near(g.drives[0].rows[2].yards, -2, 'and the last one from the resolve flow');
+    eq(g.box.rushing['12'].carries, 2, 'both kneels are rush attempts');
+    near(g.box.rushing['12'].yards, -4);
+    eq(g.drives[0].ended, 'game');
+  });
+
+  /* ----- conversions and scoring -------------------------------------- */
+
+  test('a 2-point try scores but never touches the box score', function () {
+    var b = new Builder();
+    b.startDrive(3);
+    b.play({ spot: 3, playType: 'run', carrier: '22', td: true });
+    b.play({ spot: 3, playType: 'run', carrier: '22', td: true, isTwoPoint: true });
+    var g = b.compute();
+    eq(g.score, 8, 'six plus two');
+    eq(g.box.rushing['22'].carries, 1, 'the try is not a carry');
+    near(g.box.rushing['22'].yards, 3);
+    eq(g.box.rushing['22'].td, 1);
+    eq(g.drives[0].conversion.type, 'two');
+    eq(g.drives[0].conversion.good, true);
+  });
+
+  test('a missed PAT and a failed try add nothing', function () {
+    var b = new Builder();
+    b.startDrive(3);
+    b.play({ spot: 3, playType: 'run', carrier: '22', td: true });
+    b.pat(false);
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'run', carrier: '22', td: false });
+    var g = b.compute();
+    eq(g.score, 6);
+  });
+
+  test('score adds up across drives', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'run', carrier: '22', td: true });
+    b.pat(true);
+    b.startDrive(-40);
+    b.play({ spot: -40, playType: 'pass', passOutcome: 'complete', qb: '12', receiver: '80', td: true });
+    b.pat(true);
+    b.startDrive(-20);
+    b.play({ spot: -20, playType: 'run', carrier: '22' });
+    b.endDrive('punt');
+    var g = b.compute();
+    eq(g.score, 14);
+    eq(g.box.passing['12'].td, 1);
+    eq(g.box.receiving['80'].td, 1);
+    near(g.box.receiving['80'].yards, 60);
+  });
+
+  test('an extra point can still be recorded after the next drive starts', function () {
+    var b = new Builder();
+    b.startDrive(3);
+    b.play({ spot: 3, playType: 'run', carrier: '22', td: true });
+    var scoring = b.drive;
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'run', carrier: '22' });
+
+    var g1 = b.compute();
+    eq(g1.score, 6, 'the kick was never entered');
+    eq(g1.drives[0].needsConversion, true, 'the scoring drive still wants one');
+    eq(g1.current.needsConversion, false, 'but it no longer blocks the live drive');
+
+    // Recorded later, against the drive that actually scored.
+    b.game.plays.push(M.makePat({ gameId: b.game.id, driveId: scoring.id, good: true }));
+    var g2 = b.compute();
+    eq(g2.score, 7, 'the point is recoverable');
+    eq(g2.drives[0].needsConversion, false);
+  });
+
+  test('re-entering a conversion corrects it instead of scoring twice', function () {
+    var b = new Builder();
+    b.startDrive(3);
+    b.play({ spot: 3, playType: 'run', carrier: '22', td: true });
+    b.pat(true);
+    b.pat(true);
+    eq(b.compute().score, 7, 'two good PATs on one drive are still one point');
+    b.pat(false);
+    eq(b.compute().score, 6, 'the last one entered is the one that counts');
+  });
+
+  test('skipping the extra point stops the prompt but keeps it reachable', function () {
+    var b = new Builder();
+    b.startDrive(3);
+    b.play({ spot: 3, playType: 'run', carrier: '22', td: true });
+    var g1 = b.compute();
+    eq(g1.current.needsConversion, true);
+    b.drive.conversionSkipped = true;
+    var g2 = b.compute();
+    eq(g2.current.needsConversion, false, 'the panel stops asking');
+    eq(g2.drives[0].needsConversion, true, 'the drive review still offers it');
+    eq(g2.score, 6);
+  });
+
+  test('junk overrides are ignored rather than poisoning the drive', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    var p = b.play({ spot: -25, playType: 'run', carrier: '3' });
+    b.play({ spot: -31, playType: 'run', carrier: '3' });
+    b.play({ spot: -35, playType: 'run', carrier: '3' });
+    // The shape an imported or hand-edited file can arrive in.
+    p.overrides = { down: 'abc', distance: '', yards: null };
+    var r = b.compute().drives[0].rows;
+    eq(dd(r[0]), '1st & 10');
+    near(r[0].yards, 6, 'the chain still computes');
+    eq(dd(r[1]), '2nd & 4');
+    near(b.compute().box.rushing['3'].yards, 10);
+  });
+
+  /* ----- editing and recalculation ------------------------------------ */
+
+  test('editing a snap spot ripples forward through the drive', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'run', carrier: '3' });
+    var second = b.play({ spot: -31, playType: 'run', carrier: '3' });
+    b.play({ spot: -40, playType: 'run', carrier: '3' });
+    var g1 = b.compute();
+    near(g1.drives[0].rows[0].yards, 6);
+    eq(dd(g1.drives[0].rows[1]), '2nd & 4');
+
+    second.spot = -29;                       // the coach fixes a mis-keyed spot
+    var g2 = b.compute();
+    near(g2.drives[0].rows[0].yards, 4, 'the first play re-resolves');
+    eq(dd(g2.drives[0].rows[1]), '2nd & 6', 'down & distance follow');
+    near(g2.drives[0].rows[1].yards, 11);
+    eq(g2.drives[0].rows[2].firstDown, false);
+    eq(dd(g2.drives[0].rows[2]), '1st & 10');
+  });
+
+  test('recalculation never crosses a drive boundary', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'run', carrier: '3', td: false, turnover: 'fumble', endSpot: -30 });
+    b.startDrive(-40);
+    b.play({ spot: -40, playType: 'run', carrier: '3' });
+    var g = b.compute();
+    eq(g.drives[1].rows[0].pending, true, 'the next drive does not resolve the last one');
+    eq(dd(g.drives[1].rows[0]), '1st & 10');
+    near(g.drives[0].rows[0].yards, 5);
+  });
+
+  test('a hand-corrected play is respected and the chain picks up after it', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'run', carrier: '3' });
+    var fixed = b.play({ spot: -31, playType: 'run', carrier: '3' });
+    b.play({ spot: -35, playType: 'run', carrier: '3' });
+    b.play({ spot: -39, playType: 'run', carrier: '3' });
+
+    fixed.overrides = { yards: 4, down: 2, distance: 4 };
+    fixed.edited = true;
+    var g = b.compute();
+    var r = g.drives[0].rows;
+    eq(dd(r[1]), '2nd & 4', 'the typed down & distance win');
+    near(r[1].yards, 4);
+    eq(r[1].firstDown, true, '4 yards reached the 4 to go');
+    eq(dd(r[2]), '1st & 10', 'auto-logic resumes from the corrected state');
+    near(r[2].yards, 4);
+    eq(dd(r[3]), '2nd & 6');
+
+    // The typed yardage outranks the next snap spot: moving that spot no
+    // longer changes the play the coach corrected by hand.
+    b.game.plays[2].spot = -33;
+    var r2 = b.compute().drives[0].rows;
+    near(r2[1].yards, 4, 'the hand-corrected yardage is not silently overwritten');
+    near(r2[0].yards, 6, 'plays before the correction still auto-resolve');
+  });
+
+  test('an override survives on the play it was typed on', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    var p = b.play({ spot: -25, playType: 'run', carrier: '3' });
+    p.overrides = { yards: 12 };
+    var g = b.compute();
+    near(g.drives[0].rows[0].yards, 12);
+    eq(g.drives[0].rows[0].firstDown, true);
+    near(g.box.rushing['3'].yards, 12);
+  });
+
+  /* ----- persistence shape -------------------------------------------- */
+
+  test('normalizeDb fills in a hand-edited or older file', function () {
+    var db = M.normalizeDb({ games: [{ id: 'g1', plays: [{ id: 'p1', spot: -25 }], drives: [{ id: 'd1', startSpot: -25 }] }] });
+    eq(db.games.length, 1);
+    eq(db.activeGameId, 'g1');
+    eq(db.games[0].plays[0].formation, '');
+    eq(db.games[0].plays[0].playType, 'run');
+    eq(db.games[0].plays[0].kind, 'snap');
+    eq(db.games[0].drives[0].gameId, 'g1');
+  });
+
+  test('a play record carries plain strings for the Phase 2 fields', function () {
+    var p = M.makePlay({ formation: 'Trips Rt', backfield: 'Pistol', motion: 'Z jet', playCall: 'Power' });
+    eq(typeof p.formation, 'string');
+    eq(typeof p.backfield, 'string');
+    eq(typeof p.motion, 'string');
+    eq(typeof p.playCall, 'string');
+  });
+
+  /* ----- runner -------------------------------------------------------- */
+
+  function run(log) {
+    var passed = 0, failed = 0, results = [];
+    tests.forEach(function (t) {
+      try {
+        t.fn();
+        passed++;
+        results.push({ name: t.name, ok: true });
+        if (log) log('  PASS  ' + t.name);
+      } catch (err) {
+        failed++;
+        results.push({ name: t.name, ok: false, error: err.message });
+        if (log) log('  FAIL  ' + t.name + '\n          ' + err.message);
+      }
+    });
+    if (log) log('\n' + passed + ' passed, ' + failed + ' failed, ' + tests.length + ' total');
+    if (failed && typeof process !== 'undefined' && process.exitCode !== undefined) process.exitCode = 1;
+    return { passed: passed, failed: failed, results: results };
+  }
+
+  return { run: run, tests: tests };
+});
+
+/* ==========================================================
+ * self-test wiring
+ *
+ * The suite ships inside the page so any laptop can be checked
+ * without a second file to copy. Help -> Run self-test, or add
+ * #selftest to the address.
+ * ========================================================== */
+(function (global) {
+  'use strict';
+  var FB = global.FB;
+
+  function run() {
+    var out = document.getElementById('selftest-out');
+    var res = FB.Tests.run(function (line) { if (global.console) console.log(line); });
+    var bad = res.results.filter(function (r) { return !r.ok; });
+    out.className = 'hint ' + (res.failed ? 'selftest-bad' : 'selftest-ok');
+    out.textContent = res.passed + ' passed, ' + res.failed + ' failed' +
+      (bad.length ? ' \u2014 ' + bad.map(function (r) { return r.name; }).join('; ') : '');
+    return res;
+  }
+
+  function openAndRun() {
+    var dlg = document.getElementById('help-dialog');
+    if (dlg && dlg.showModal && !dlg.open) dlg.showModal();
+    run();
+  }
+
+  function hashWants() {
+    return (global.location.hash || '').toLowerCase().indexOf('selftest') > -1;
+  }
+
+  function wire() {
+    var btn = document.getElementById('btn-selftest');
+    if (btn) btn.addEventListener('click', run);
+    // Typing #selftest into an open page only changes the hash - the page
+    // never reloads - so catch that as well as a cold open.
+    global.addEventListener('hashchange', function () { if (hashWants()) openAndRun(); });
+    if (hashWants()) openAndRun();
+  }
+
+  FB.runSelfTest = run;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
 </body>
 </html>
