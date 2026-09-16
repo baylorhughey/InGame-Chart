@@ -557,6 +557,17 @@ table.stats tr:last-child td { border-bottom: none; }
 .selftest-ok { color: var(--good); font-weight: 700; }
 .selftest-bad { color: var(--bad); font-weight: 700; }
 
+#copy-text {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
 .help-body h3 { margin: 1.1rem 0 0.35rem; font-size: 0.95rem; }
 .help-body h3:first-child { margin-top: 0; }
 .help-body p, .help-body li { color: var(--ink-2); line-height: 1.45; }
@@ -887,6 +898,25 @@ body.mode-touch .touchbar {
       <button type="button" class="btn btn-primary btn-tall" id="btn-export-json">All games &mdash; JSON (re&#8209;importable)</button>
       <button type="button" class="btn btn-tall" id="btn-export-plays">This game &mdash; play chart CSV</button>
       <button type="button" class="btn btn-tall" id="btn-export-box">This game &mdash; box score CSV</button>
+      <button type="button" class="btn btn-tall" id="btn-export-copy">Show the data to copy &amp; paste</button>
+    </div>
+    <p class="hint">Use copy &amp; paste if this browser will not save files &mdash; a locked-down
+      laptop, or the app opened from a link.</p>
+  </div>
+</dialog>
+
+<dialog id="copy-dialog" class="dlg dlg-wide">
+  <form method="dialog" class="dlg-head">
+    <h2>Copy your data</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body">
+    <p class="hint">Copy all of this and paste it into a plain text file on the drive, named
+      something like <code>chart.json</code>. Import reads it straight back.</p>
+    <textarea id="copy-text" rows="12" spellcheck="false" readonly></textarea>
+    <div class="row gap-top">
+      <button type="button" class="btn btn-primary btn-tall" id="btn-copy-clip">Copy to clipboard</button>
+      <span class="hint" id="copy-status"></span>
     </div>
   </div>
 </dialog>
@@ -2103,7 +2133,35 @@ body.mode-touch .touchbar {
    * don't offer it - or block it for file:// pages - fall back to a download,
    * which still lands in the browser's save flow.
    */
+  /*
+   * Saving a file means different things in different hosts:
+   *  - opened from a drive or a disk: the browser's own Save As, else a
+   *    download;
+   *  - opened as a published page: the page is sandboxed and cannot save
+   *    anything itself, so the viewer's shell does it for us.
+   * Either way a refusal comes back as `cancelled`, and the caller offers
+   * copy & paste, which needs no permission from anyone.
+   */
   function saveFile(name, text, mime, opts) {
+    opts = opts || {};
+    var host = global.claude;
+    if (!opts.forceDownload && host && typeof host.use === 'function') {
+      return host.use('downloads').then(function (downloads) {
+        if (!downloads) return nativeSave(name, text, mime, opts);
+        return downloads.save({ filename: name, data: text }).then(function () {
+          return { ok: true, how: 'host', name: name };
+        }, function (err) {
+          return {
+            ok: false, cancelled: true, name: name, text: text, mime: mime,
+            reason: (err && (err.message || err.code)) || 'not saved'
+          };
+        });
+      }, function () { return nativeSave(name, text, mime, opts); });
+    }
+    return nativeSave(name, text, mime, opts);
+  }
+
+  function nativeSave(name, text, mime, opts) {
     opts = opts || {};
     var types = [{
       description: mime === 'application/json' ? 'JSON file' : 'CSV file',
@@ -3377,6 +3435,11 @@ body.mode-touch .touchbar {
     qs('#btn-export-plays').addEventListener('click', function () { runExport(App.exportPlaysCsv()); });
     qs('#btn-export-box').addEventListener('click', function () { runExport(App.exportBoxCsv()); });
 
+    qs('#btn-export-copy').addEventListener('click', function () {
+      openCopy(IO.exportJson(App.db));
+    });
+    qs('#btn-copy-clip').addEventListener('click', copyOut);
+
     // Import
     qs('#btn-import-merge').addEventListener('click', function () { pickImport('merge'); });
     qs('#btn-import-replace').addEventListener('click', function () { pickImport('replace'); });
@@ -3426,11 +3489,8 @@ body.mode-touch .touchbar {
         // Never let an export end in silence - this is the only thing
         // standing between the coach and a lost game.
         notice('warn', 'Nothing was saved.', {
-          label: 'Save as a download instead',
-          fn: function () {
-            var out = IO.download(res.name, res.text, res.mime);
-            notice('info', 'Saved ' + out.name + ' to your downloads.');
-          }
+          label: 'Show the data to copy instead',
+          fn: function () { openCopy(res.text); }
         });
         return;
       }
@@ -3438,6 +3498,38 @@ body.mode-touch .touchbar {
     }).catch(function (err) {
       notice('error', 'Export failed: ' + err.message);
     });
+  }
+
+  /*
+   * The last resort that always works: the data as selectable text. Some
+   * browsers - and any sandbox that blocks a page from saving files - make
+   * Export do nothing at all, and a charted game is too expensive to lose to
+   * that.
+   */
+  function openCopy(text) {
+    var dlg = qs('#copy-dialog');
+    qs('#export-dialog').close();
+    qs('#copy-text').value = text;
+    qs('#copy-status').textContent = '';
+    dlg.showModal();
+    qs('#copy-text').focus();
+    qs('#copy-text').select();
+  }
+
+  function copyOut() {
+    var ta = qs('#copy-text');
+    var status = qs('#copy-status');
+    ta.focus();
+    ta.select();
+    function done(ok) {
+      status.textContent = ok ? 'Copied.' : 'Press Ctrl+C (Cmd+C on a Mac) to copy.';
+    }
+    if (global.navigator && global.navigator.clipboard && global.navigator.clipboard.writeText) {
+      global.navigator.clipboard.writeText(ta.value).then(function () { done(true); },
+        function () { done(false); });
+      return;
+    }
+    try { done(document.execCommand('copy')); } catch (err) { done(false); }
   }
 
   function pickImport(mode) {
