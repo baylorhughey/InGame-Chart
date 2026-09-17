@@ -569,6 +569,30 @@ table.stats tr:last-child td { border-bottom: none; }
   overflow-x: auto;
 }
 
+.final-score {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  flex-wrap: wrap;
+  background: var(--ink);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 0.9rem;
+}
+.final-score .status-lbl { color: #9fb0c2; }
+.final-num { font-size: 3rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.final-meta { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.final-meta b { display: block; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.save-now {
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 0.8rem;
+  margin-bottom: 1.1rem;
+}
+.save-now h2 { color: var(--accent); }
+
 .help-body h3 { margin: 1.1rem 0 0.35rem; font-size: 0.95rem; }
 .help-body h3:first-child { margin-top: 0; }
 .help-body p, .help-body li { color: var(--ink-2); line-height: 1.45; }
@@ -762,7 +786,7 @@ body.mode-touch .touchbar {
         <label class="field grow">
           <span class="lbl">Starting spot</span>
           <input type="text" id="drive-spot" inputmode="text" autocomplete="off"
-                 placeholder="-25 = our 25, +40 = their 40" enterkeyhint="go">
+                 placeholder="40 = their 40, -25 = our 25" enterkeyhint="go">
         </label>
         <button type="submit" class="btn btn-primary btn-tall" accesskey="d">Start drive</button>
       </form>
@@ -842,7 +866,7 @@ body.mode-touch .touchbar {
     <form id="resolve-form" class="row">
       <label class="field grow">
         <span class="lbl">Final yard line</span>
-        <input type="text" id="resolve-spot" autocomplete="off" placeholder="-38 or +12" enterkeyhint="done">
+        <input type="text" id="resolve-spot" autocomplete="off" placeholder="12 or -38" enterkeyhint="done">
       </label>
       <button type="submit" class="btn btn-primary btn-tall">Set yard line</button>
     </form>
@@ -865,7 +889,7 @@ body.mode-touch .touchbar {
     <form id="drive-edit-form" class="row">
       <label class="field grow">
         <span class="lbl">Starting spot</span>
-        <input type="text" id="drive-edit-spot" autocomplete="off" placeholder="-25 or +40" enterkeyhint="done">
+        <input type="text" id="drive-edit-spot" autocomplete="off" placeholder="40 or -25" enterkeyhint="done">
       </label>
       <button type="submit" class="btn btn-primary btn-tall">Save</button>
     </form>
@@ -932,6 +956,14 @@ body.mode-touch .touchbar {
     <button type="button" class="btn" id="btn-selftest">Run self-test</button>
     <span id="selftest-out" class="hint"></span>
   </div>
+</dialog>
+
+<dialog id="summary-dialog" class="dlg dlg-wide">
+  <form method="dialog" class="dlg-head">
+    <h2 id="summary-title">Game summary</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body" id="summary-body"></div>
 </dialog>
 
 <dialog id="game-dialog" class="dlg">
@@ -1188,6 +1220,7 @@ body.mode-touch .touchbar {
       opponent: attrs.opponent || '',
       date: attrs.date || nowIso().slice(0, 10),
       createdAt: attrs.createdAt || nowIso(),
+      finishedAt: attrs.finishedAt || null,
       drives: [],
       plays: []
     };
@@ -1394,22 +1427,21 @@ body.mode-touch .touchbar {
     var s = String(text).trim().toLowerCase().replace(/\s+/g, '');
     if (!s) return { ok: false, error: 'Enter a yard line' };
 
-    var side = 0; // -1 ours, +1 theirs
+    var side = 0; // -1 ours, +1 theirs, 0 = not stated
     var m;
     if ((m = s.match(/^(?:-|own|o)(\d+(?:\.\d+)?)$/))) { side = -1; s = m[1]; }
     else if ((m = s.match(/^(?:\+|opp|their|them|t)(\d+(?:\.\d+)?)$/))) { side = 1; s = m[1]; }
     else if ((m = s.match(/^(\d+(?:\.\d+)?)-$/))) { side = -1; s = m[1]; }
     else if ((m = s.match(/^(\d+(?:\.\d+)?)\+$/))) { side = 1; s = m[1]; }
     else if ((m = s.match(/^(\d+(?:\.\d+)?)$/))) { s = m[1]; }
-    else return { ok: false, error: 'Use -13 (ours) or +35 (theirs)' };
+    else return { ok: false, error: 'Use 35 (theirs) or -35 (ours)' };
 
     var n = parseFloat(s);
-    if (isNaN(n)) return { ok: false, error: 'Use -13 (ours) or +35 (theirs)' };
+    if (isNaN(n)) return { ok: false, error: 'Use 35 (theirs) or -35 (ours)' };
     if (n < 0 || n > 50) return { ok: false, error: 'Yard line must be 0-50' };
-    if (side === 0) {
-      if (n === 50) return { ok: true, value: -50 };
-      return { ok: false, error: 'Add - (ours) or + (theirs)' };
-    }
+    // Only our own side needs a sign. A bare number is their side, which is
+    // one keystroke saved on the half of the field you type most.
+    if (side === 0) return { ok: true, value: n === 50 ? -50 : n };
     return { ok: true, value: side * n };
   }
 
@@ -2345,6 +2377,22 @@ body.mode-touch .touchbar {
     App.commit();
   };
 
+  // Marks the game done. Nothing is locked - a game can be reopened, because
+  // a mis-tapped button should never cost you the rest of a chart.
+  App.finishGame = function () {
+    var g = App.activeGame();
+    if (!g) return;
+    g.finishedAt = M.nowIso();
+    App.commit();
+  };
+
+  App.reopenGame = function () {
+    var g = App.activeGame();
+    if (!g) return;
+    g.finishedAt = null;
+    App.commit();
+  };
+
   App.deleteGame = function (id) {
     App.db.games = App.db.games.filter(function (g) { return g.id !== id; });
     if (!App.db.games.length) {
@@ -2696,7 +2744,7 @@ body.mode-touch .touchbar {
     /* --- snap spot: the only field position ever typed --- */
     var spot = D.field({
       label: 'Snap spot', class: 'spot-field grow',
-      placeholder: '-25 or +40', inputmode: 'text', autocapitalize: 'off', enterkeyhint: 'next'
+      placeholder: '40 or -25', inputmode: 'text', autocapitalize: 'off', enterkeyhint: 'next'
     });
     var spotNote = D.el('div', { class: 'pf-note pf-row-note' });
     root.appendChild(D.el('div', { class: 'row pf-row-spot' }, [spot.wrap]));
@@ -3255,7 +3303,97 @@ body.mode-touch .touchbar {
 
   function endDrive(reason) {
     App.endDrive(reason);
-    if (App.pendingPlay()) openResolve();
+    var pending = App.pendingPlay();
+    if (reason !== 'game') {
+      if (pending) openResolve();
+      return;
+    }
+    // The whole point of charting is what you have at the end, so ending the
+    // game puts it in front of you - after any last play is closed out.
+    App.finishGame();
+    if (pending) { ui.summaryAfterResolve = true; openResolve(); }
+    else openSummary();
+  }
+
+  function afterResolve() {
+    qs('#resolve-dialog').close();
+    if (ui.summaryAfterResolve) {
+      ui.summaryAfterResolve = false;
+      openSummary();
+      return;
+    }
+    focusForEntry();
+  }
+
+  /*
+   * The end-of-game page: what the chart was for, and a shove toward Export,
+   * because this is the moment the data is most valuable and most easily lost.
+   */
+  function openSummary() {
+    var g = App.activeGame();
+    var c = App.computed;
+    var host = qs('#summary-body');
+    qs('#summary-title').textContent =
+      (g.name || 'Game') + (g.opponent ? ' vs ' + g.opponent : '') + (g.finishedAt ? ' — Final' : '');
+    D.clear(host);
+
+    host.appendChild(el('div', { class: 'final-score' }, [
+      el('div', {}, [
+        el('div', { class: 'status-lbl', text: g.finishedAt ? 'Final — us' : 'So far — us' }),
+        el('div', { class: 'final-num', text: String(c.score) })
+      ]),
+      el('div', { class: 'final-meta' }, [
+        el('div', {}, [el('b', { text: String(c.totals.plays) }), 'plays']),
+        el('div', {}, [el('b', { text: E.num(c.totals.yards) }), 'yards']),
+        el('div', {}, [el('b', { text: String(c.totals.firstDowns) }), 'first downs']),
+        el('div', {}, [el('b', { text: String(c.totals.drives) }), 'drives']),
+        el('div', {}, [el('b', { text: String(c.totals.touchdowns) }), 'TDs'])
+      ])
+    ]));
+
+    host.appendChild(el('div', { class: 'save-now' }, [
+      el('h2', { text: 'Save this before you close the laptop' }),
+      el('p', {
+        class: 'hint',
+        text: 'Everything is stored in this browser only — it does not travel with the drive. ' +
+              'Export it now and drop the file on the drive.'
+      }),
+      el('div', { class: 'row wrap' }, [
+        el('button', {
+          type: 'button', class: 'btn btn-primary btn-tall',
+          onclick: function () { runExport(App.exportData()); }
+        }, ['Export all games (JSON)']),
+        el('button', {
+          type: 'button', class: 'btn',
+          onclick: function () { runExport(App.exportBoxCsv()); }
+        }, ['Box score CSV']),
+        el('button', {
+          type: 'button', class: 'btn',
+          onclick: function () { runExport(App.exportPlaysCsv()); }
+        }, ['Play chart CSV']),
+        el('button', {
+          type: 'button', class: 'btn',
+          onclick: function () { openCopy(IO.exportJson(App.db)); }
+        }, ['Copy & paste instead'])
+      ])
+    ]));
+
+    host.appendChild(boxTables(c.box));
+    host.appendChild(teamTable('Team', c.totals, c.score));
+
+    host.appendChild(el('div', { class: 'row wrap gap-top' }, [
+      el('button', {
+        type: 'button', class: 'btn btn-primary btn-tall',
+        onclick: function () { qs('#summary-dialog').close(); openGameDialog('new'); }
+      }, ['Start next game']),
+      g.finishedAt ? el('button', {
+        type: 'button', class: 'btn',
+        onclick: function () { App.reopenGame(); openSummary(); }
+      }, ['Reopen this game']) : null
+    ]));
+
+    var dlg = qs('#summary-dialog');
+    if (!dlg.open) dlg.showModal();
   }
 
   // The quick buttons need a spot: whatever is typed, else where the chart
@@ -3415,18 +3553,15 @@ body.mode-touch .touchbar {
       if (!parsed.ok) { err.textContent = parsed.error; err.hidden = false; return; }
       err.hidden = true;
       App.resolveLast('spot', parsed.value);
-      qs('#resolve-dialog').close();
-      focusForEntry();
+      afterResolve();
     });
     qs('#btn-resolve-td').addEventListener('click', function () {
       App.resolveLast('td');
-      qs('#resolve-dialog').close();
-      focusForEntry();
+      afterResolve();
     });
     qs('#btn-resolve-zero').addEventListener('click', function () {
       App.resolveLast('zero');
-      qs('#resolve-dialog').close();
-      focusForEntry();
+      afterResolve();
     });
 
     // Export
@@ -3676,7 +3811,9 @@ body.mode-touch .touchbar {
     qs('#drive-net').textContent = last ? E.num(last.netYards) : 0;
 
     var tag = qs('#drive-state');
-    if (!last) { tag.textContent = 'No drive yet'; tag.className = 'tag'; }
+    var game = App.activeGame();
+    if (game && game.finishedAt) { tag.textContent = 'Final'; tag.className = 'tag good'; }
+    else if (!last) { tag.textContent = 'No drive yet'; tag.className = 'tag'; }
     else if (last.ended) { tag.textContent = endLabel(last.ended); tag.className = 'tag ' + endClass(last.ended); }
     else if (last.pending) { tag.textContent = 'Pending'; tag.className = 'tag warn'; }
     else { tag.textContent = 'Live'; tag.className = 'tag accent'; }
@@ -4032,6 +4169,7 @@ body.mode-touch .touchbar {
 
     host.appendChild(el('div', { class: 'row wrap', style: 'margin-bottom:.8rem' }, [
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { openGameDialog('new'); } }, ['New game']),
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: openSummary }, ['Game summary']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { openGameDialog('edit'); } }, ['Edit this game']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { runExport(App.exportData()); } }, ['Export all games'])
     ]));
@@ -4086,9 +4224,9 @@ body.mode-touch .touchbar {
     body.className = 'dlg-body help-body';
     body.innerHTML = [
       '<h3>Yard lines</h3>',
-      '<p>Type them exactly like the paper chart: <kbd>-25</kbd> is our own 25, <kbd>+40</kbd> is their 40, ',
-      '<kbd>50</kbd> is midfield. <kbd>o25</kbd> and <kbd>opp40</kbd> work too. A bare number other than 50 is ',
-      'refused on purpose &mdash; guessing the side would wreck every yardage number after it.</p>',
+      '<p><b>A bare number is their side of the field</b> &mdash; <kbd>40</kbd> is their 40. Put a minus in ',
+      'front for our own side: <kbd>-25</kbd> is our own 25. <kbd>50</kbd> is midfield either way. ',
+      '<kbd>+40</kbd>, <kbd>o25</kbd> and <kbd>opp40</kbd> all still work if you prefer them.</p>',
 
       '<h3>The only two numbers you type</h3>',
       '<p>The starting spot of each drive, and the snap spot of each play. Yards gained, down and distance are ',
@@ -4246,16 +4384,38 @@ body.mode-touch .touchbar {
     eq(E.formatSpot(-50), '50');
   });
 
-  test('parseSpot accepts coach shorthand and refuses ambiguity', function () {
-    eq(E.parseSpot('-13').value, -13);
+  test('parseSpot: a bare number is their side, a minus is ours', function () {
+    eq(E.parseSpot('35').value, 35, 'bare number = their 35');
+    eq(E.parseSpot('-35').value, -35, 'the minus is the only sign you have to type');
+    eq(E.parseSpot('50').value, -50, 'midfield either way');
+    eq(E.parseSpot('0').value, 0, 'their goal line');
+    // The longer forms still work for anyone who prefers them.
     eq(E.parseSpot('+35').value, 35);
     eq(E.parseSpot('o13').value, -13);
     eq(E.parseSpot('opp35').value, 35);
     eq(E.parseSpot('35+').value, 35);
-    eq(E.parseSpot('50').value, -50);
-    eq(E.parseSpot('35').ok, false, 'bare number is ambiguous');
+    eq(E.parseSpot('13-').value, -13);
     eq(E.parseSpot('').ok, false);
-    eq(E.parseSpot('+51').ok, false, 'past midfield on the wrong side');
+    eq(E.parseSpot('51').ok, false, 'past midfield is not a yard line');
+    eq(E.parseSpot('abc').ok, false);
+  });
+
+  test('a bare number charts the same drive as the signed form', function () {
+    var b = new Builder();
+    b.startDrive(E.parseSpot('-25').value);
+    b.play({ spot: E.parseSpot('-25').value, playType: 'run', carrier: '22' });
+    b.play({ spot: E.parseSpot('40').value, playType: 'run', carrier: '22' });  // their 40, typed bare
+    var d = b.compute().drives[0];
+    near(d.rows[0].yards, 35, 'our 25 to their 40 is 35 yards');
+    eq(E.formatDownDistance(d.rows[1].down, d.rows[1].distance, d.rows[1].goalToGo), '1st & 10');
+  });
+
+  test('a finished game is marked and can be reopened', function () {
+    var g = M.makeGame({ name: 'Week 1' });
+    eq(g.finishedAt, null, 'a new game is not finished');
+    g.finishedAt = M.nowIso();
+    eq(typeof M.normalizeDb({ games: [g] }).games[0].finishedAt, 'string',
+      'the mark survives an export and import');
   });
 
   /* ----- penalty half-the-distance ----------------------------------- */

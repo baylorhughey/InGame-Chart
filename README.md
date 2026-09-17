@@ -42,7 +42,7 @@ keeps working from memory for the session.
 
 | | |
 |---|---|
-| **Yard lines** | Signed, exactly like the paper chart: `-25` is our own 25, `+40` is their 40, `50` is midfield. `o25` / `opp40` also work. A bare number other than 50 is **refused** — guessing the side would silently corrupt every yardage number after it. |
+| **Yard lines** | A bare number is **their** side: `40` is their 40. A minus makes it ours: `-25` is our own 25. `50` is midfield either way. `+40`, `o25` and `opp40` still work. Only one half of the field needs a keystroke, and it's the one you say out loud anyway. |
 | **What you type** | The starting spot of each drive, and the snap spot of each play. Nothing else about field position. |
 | **Yards gained** | `fieldPos(next snap spot) − fieldPos(this snap spot)`, computed when the next play is entered. A play shows as **pending** until then. |
 | **Down & distance** | Always computed, never typed. |
@@ -115,6 +115,18 @@ Opponent scoring and defensive/special-teams scores are Phase 2.
 The form is always on screen. Until a drive has been started it sits greyed out with the
 reason on it and a button that takes you to the starting-spot field — the one input that
 has to come first.
+
+## Ending the game
+
+**End game** does what it says: it closes the drive, marks the game final, and puts the
+wrap-up in front of you — final score, plays, yards, first downs, drives, touchdowns, the
+full box score by jersey number, and **Export** at the top, because that is the moment the
+data is worth the most and easiest to lose. If a play is still open it asks you to resolve
+it first, then shows the summary.
+
+The status strip reads **Final** afterwards. Nothing is locked: **Game summary** in the
+Games tab brings it back any time, and **Reopen this game** undoes the mark if you hit it
+by mistake or need to add a play you missed.
 
 ## Fixing mistakes mid-game
 
