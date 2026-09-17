@@ -157,6 +157,28 @@ put a wrong number on the board with no way back to it:
 - **Undo** (`Alt`+`Z`) takes back the last thing you entered. On a drive you've just started
   and not yet charted, that thing was the drive, so the drive comes back off.
 
+## Look and feel
+
+Black, Vegas gold and white. The neutrals are pulled a few degrees warm so they sit with
+the gold instead of fighting it, and gold never carries small text on white, where it
+would not hold contrast — it marks first downs, selected states, the primary action and
+the focus ring, all with near-black text on it.
+
+Display type is **Teko**, embedded as a 15KB data URI: no network, no fallback flash,
+parsed once. It carries the scoreboard numbers, headings, tabs and yard lines. Form fields
+and play text stay on the system sans, which is faster to scan while typing. (A serif was
+considered and set aside — at small UI sizes it costs reading speed, and this is a tool you
+read at a glance between snaps.)
+
+Single theme on purpose: this is charted from a lit press box, not a dark sideline.
+
+## Browser support
+
+Plain ES5, no modules, no build. `<dialog>` is the one modern thing it leans on, and where
+it is missing — Safari before 15.4, Firefox before 98 — a built-in fallback stands in, so
+every panel still opens and closes and nothing dumps inline. Verified with dialog support
+removed entirely.
+
 ## Inside the file
 
 `index.html` is one `<style>` block and one `<script>` block. The script is still organised
