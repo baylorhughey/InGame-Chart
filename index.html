@@ -31,9 +31,11 @@
 }
 
 /*
- * Black, Vegas gold and white. The neutrals are pulled a few degrees warm so
- * they sit with the gold rather than fighting it; gold carries the brand and
- * never carries small text on white, where it would not hold contrast.
+ * Black, white, and Vegas gold used sparingly. Black carries the work -
+ * primary actions, selected states, the type. Gold is saved for the few
+ * things worth marking: the team name, a first down, the ball's position,
+ * the focus ring, and run against pass in the tendency bars. Spent
+ * everywhere, an accent stops meaning anything.
  * Single-theme by choice - this is charted from a lit press box.
  */
 :root {
@@ -165,7 +167,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
 }
 .banner.warn { background: var(--warn-soft); color: var(--warn); }
 .banner.error { background: var(--bad-soft); color: var(--bad); }
-.banner.info { background: var(--accent-soft); color: var(--accent); }
+.banner.info { background: var(--line-2); color: var(--ink-2); }
 .banner.pending { background: var(--pend-soft); color: var(--pend); }
 
 /* ---------------- status strip ---------------- */
@@ -230,7 +232,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .tag.good { background: var(--good-soft); color: var(--good); }
 .tag.bad { background: var(--bad-soft); color: var(--bad); }
 .tag.warn { background: var(--warn-soft); color: var(--warn); }
-.tag.accent { background: var(--accent-soft); color: var(--accent); }
+.tag.accent { background: var(--line-2); color: var(--ink-2); }
 
 /* ---------------- layout ---------------- */
 
@@ -251,7 +253,7 @@ main {
   padding: 0.9rem;
   box-shadow: var(--shadow-1);
 }
-.panel-accent { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.panel-accent { border-color: var(--ink); box-shadow: 0 0 0 2px var(--line-2); }
 
 /* ---------------- form bits ---------------- */
 
@@ -313,13 +315,13 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
 .btn:active { transform: translateY(1px); }
 .btn-tall { min-height: var(--tap); padding-inline: 1rem; }
 .btn-primary {
-  background: var(--gold);
-  border-color: var(--gold-deep);
-  color: var(--ink);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
   font-weight: 700;
   box-shadow: var(--shadow-1);
 }
-.btn-primary:hover { background: var(--gold-hi); }
+.btn-primary:hover { background: #2A261C; }
 .btn-good { background: var(--good); border-color: var(--good); color: #fff; }
 .btn-bad { background: var(--bad); border-color: var(--bad); color: #fff; }
 .btn-quiet { color: var(--ink-2); background: transparent; }
@@ -350,9 +352,9 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
 }
 .seg-btn:hover { background: var(--line-2); }
 .seg-btn[aria-checked="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
 }
 .seg-sub .seg-btn { min-height: 36px; font-size: 0.92rem; }
 
@@ -371,7 +373,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
   user-select: none;
 }
 .toggle input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
-.toggle:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.toggle:has(input:checked) { background: var(--line-2); border-color: var(--ink); color: var(--ink); }
 .toggle.td:has(input:checked) { background: var(--good-soft); border-color: var(--good); color: var(--good); }
 .toggle:focus-within { outline: 3px solid var(--accent); outline-offset: 1px; }
 
@@ -383,11 +385,11 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
   align-items: center;
   gap: 0.7rem;
   flex-wrap: wrap;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
+  background: var(--line-2);
+  border: 1px solid var(--line);
   border-radius: 6px;
   padding: 0.6rem 0.75rem;
-  color: var(--accent);
+  color: var(--ink-2);
   font-weight: 650;
   font-size: 0.9rem;
 }
@@ -429,7 +431,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
   overflow-y: auto;
 }
 .ac-opt { padding: 0.4rem 0.6rem; cursor: pointer; font-weight: 600; }
-.ac-opt:hover, .ac-opt.on { background: var(--accent); color: var(--accent-ink); }
+.ac-opt:hover, .ac-opt.on { background: var(--ink); color: #fff; }
 
 .pf-grid > .pf-span { grid-column: 1 / -1; }
 .pf-context:empty, .pf-context[hidden] { display: none; }
@@ -478,7 +480,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
   gap: 0.6rem;
   flex-wrap: wrap;
   background: var(--paper);
-  border-top: 3px solid var(--gold);
+  border-top: 3px solid var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 0.6rem 0.75rem;
@@ -529,7 +531,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
   min-height: var(--tap);
   transition: background 90ms ease, border-color 90ms ease;
 }
-.play:hover { background: var(--gold-soft); border-color: var(--line); }
+.play:hover { background: #F7F6F3; border-color: var(--line); }
 .play.is-pending { border-left-color: var(--pend); background: var(--pend-soft); }
 .play.is-td { border-left-color: var(--good); }
 .play.is-first { border-left-color: var(--gold); }
@@ -549,7 +551,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
   font-size: 1.15rem;
   font-weight: 600;
   line-height: 1;
-  color: var(--gold-deep);
+  color: var(--ink-2);
 }
 .play .p-desc { min-width: 0; }
 .play .p-desc .call { font-weight: 650; }
@@ -609,14 +611,14 @@ table.stats thead th {
   font-family: var(--display);
   font-size: 0.85rem;
   font-weight: 500;
-  background: var(--gold-soft);
+  background: #F5F4F0;
   border-bottom: 1px solid var(--line);
   font-size: 0.68rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-2);
 }
-table.stats tfoot td { font-weight: 800; background: var(--gold-soft); }
+table.stats tfoot td { font-weight: 800; background: #F5F4F0; }
 table.stats tr:last-child td { border-bottom: none; }
 .table-wrap { overflow-x: auto; }
 
@@ -810,13 +812,13 @@ tr.tend-thin td { opacity: 0.55; }
   color: var(--gold-hi);
 }
 .save-now {
-  border: 1px solid var(--accent);
-  background: var(--accent-soft);
+  border: 1px solid var(--ink);
+  background: var(--line-2);
   border-radius: var(--radius);
   padding: 0.8rem;
   margin-bottom: 1.1rem;
 }
-.save-now h2 { color: var(--accent); }
+.save-now h2 { color: var(--ink); }
 
 .help-body h3 { margin: 1.1rem 0 0.35rem; font-size: 0.95rem; }
 .help-body h3:first-child { margin-top: 0; }
@@ -913,9 +915,9 @@ body.mode-touch .touchbar {
   cursor: pointer;
 }
 .tb-primary {
-  background: var(--gold);
-  border-color: var(--gold-deep);
-  color: var(--ink);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
 }
 .tb.on { background: var(--good); border-color: var(--good); color: #fff; }
 
@@ -971,9 +973,9 @@ body.mode-touch .touchbar {
   </label>
 
   <button type="button" class="scorechip" id="btn-scoreboard" title="Scoreboard — click to add defensive, special teams or opponent points">
-    <span><span class="lbl">US</span> <strong id="our-score">0</strong></span>
+    <span><span class="lbl" id="our-name">US</span> <strong id="our-score">0</strong></span>
     <span class="sc-dash">&ndash;</span>
-    <span><span class="lbl">THEM</span> <strong id="their-score">0</strong></span>
+    <span><span class="lbl" id="their-name">THEM</span> <strong id="their-score">0</strong></span>
   </button>
 
   <div class="grow"></div>
@@ -1196,6 +1198,40 @@ body.mode-touch .touchbar {
   <div class="dlg-foot">
     <button type="button" class="btn" id="btn-selftest">Run self-test</button>
     <span id="selftest-out" class="hint"></span>
+  </div>
+</dialog>
+
+<dialog id="confirm-dialog" class="dlg">
+  <form method="dialog" class="dlg-head">
+    <h2 id="confirm-title">Are you sure?</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body">
+    <p id="confirm-text" class="hint"></p>
+    <div class="row wrap">
+      <button type="button" class="btn btn-bad btn-tall" id="confirm-yes">Delete</button>
+      <button type="button" class="btn btn-tall" id="confirm-no">Cancel</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="team-dialog" class="dlg">
+  <form method="dialog" class="dlg-head">
+    <h2>Our team</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body">
+    <p class="hint">Used on the scoreboard and in the game summary. The other side is named
+      from each game's opponent.</p>
+    <form id="team-form">
+      <label class="field"><span class="lbl">Team name</span>
+        <input type="text" id="team-name" autocomplete="off" placeholder="Sipsey Valley"></label>
+      <label class="field"><span class="lbl">Short name (scoreboard)</span>
+        <input type="text" id="team-short" autocomplete="off" maxlength="6" placeholder="SV"></label>
+      <div class="row gap-top">
+        <button type="submit" class="btn btn-primary btn-tall">Save</button>
+      </div>
+    </form>
   </div>
 </dialog>
 
@@ -1785,9 +1821,12 @@ body.mode-touch .touchbar {
     };
   }
 
+  function defaultTeam() { return { name: 'Sipsey Valley', short: 'SV' }; }
+
   function emptyDb() {
     return {
       version: SCHEMA_VERSION, activeGameId: null, games: [],
+      team: defaultTeam(),
       goals: defaultGoals(),
       terms: seedTerms({ formation: [], motion: [], playCall: [] }),
       termsSeeded: true
@@ -1807,6 +1846,11 @@ body.mode-touch .touchbar {
       if (isFinite(v)) goals[k] = v;
     });
     db.goals = goals;
+    db.team = defaultTeam();
+    if (raw.team) {
+      if (raw.team.name) db.team.name = String(raw.team.name);
+      if (raw.team.short) db.team.short = String(raw.team.short);
+    }
     ['formation', 'motion', 'playCall'].forEach(function (k) {
       var list = raw.terms && Array.isArray(raw.terms[k]) ? raw.terms[k] : [];
       db.terms[k] = list.map(String).filter(Boolean);
@@ -1849,6 +1893,7 @@ body.mode-touch .touchbar {
     makePat: makePat,
     emptyDb: emptyDb,
     defaultGoals: defaultGoals,
+    defaultTeam: defaultTeam,
     SEED_TERMS: SEED_TERMS,
     normalizeDb: normalizeDb
   };
@@ -2854,13 +2899,15 @@ body.mode-touch .touchbar {
     return csvRows(rows);
   }
 
-  function boxCsv(game, computed) {
+  function boxCsv(game, computed, team) {
+    team = team || { name: 'Us', short: 'US' };
     var rows = [];
     var box = computed.box;
+    rows.push(['Team', team.name]);
     rows.push(['Game', game.name || '(unnamed)',
       game.venue === 'away' ? 'at' : 'vs', game.opponent || '', game.date,
       game.venue === 'away' ? 'Away' : game.venue === 'neutral' ? 'Neutral' : 'Home']);
-    rows.push(['Our score', computed.score]);
+    rows.push([team.name, computed.score, game.opponent || 'Opponent', computed.opponentScore]);
     rows.push([]);
     rows.push(['PASSING', 'Comp', 'Att', 'Yards', 'TD', 'INT', 'Sacks']);
     Object.keys(box.passing).sort(byNumber).forEach(function (n) {
@@ -3147,6 +3194,12 @@ body.mode-touch .touchbar {
   };
 
   /* ---------------- goals ---------------- */
+
+  App.setTeam = function (patch) {
+    if (patch.name != null) App.db.team.name = String(patch.name).trim() || 'Us';
+    if (patch.short != null) App.db.team.short = String(patch.short).trim().toUpperCase() || 'US';
+    App.commit();
+  };
 
   App.setGoals = function (patch) {
     Object.keys(patch || {}).forEach(function (k) {
@@ -3552,7 +3605,7 @@ body.mode-touch .touchbar {
 
   App.exportBoxCsv = function () {
     var g = App.activeGame();
-    return IO.saveFile(IO.filename('boxscore', g), IO.boxCsv(g, App.computed), 'text/csv');
+    return IO.saveFile(IO.filename('boxscore', g), IO.boxCsv(g, App.computed, App.db.team), 'text/csv');
   };
 
   App.importData = function (text, mode) {
@@ -4262,11 +4315,11 @@ body.mode-touch .touchbar {
 
     host.appendChild(el('div', { class: 'final-score' }, [
       el('div', {}, [
-        el('div', { class: 'status-lbl', text: g.finishedAt ? 'Final — us' : 'So far — us' }),
+        el('div', { class: 'status-lbl', text: App.db.team.short + (g.finishedAt ? ' — final' : ' — so far') }),
         el('div', { class: 'final-num', text: String(c.score) })
       ]),
       el('div', {}, [
-        el('div', { class: 'status-lbl', text: 'Them' }),
+        el('div', { class: 'status-lbl', text: shortName(g.opponent, 'OPP') }),
         el('div', { class: 'final-num', text: String(c.opponentScore) })
       ]),
       el('div', { class: 'final-meta' }, [
@@ -4365,6 +4418,12 @@ body.mode-touch .touchbar {
     qs('#btn-import').addEventListener('click', function () { qs('#import-dialog').showModal(); });
     qs('#btn-help').addEventListener('click', openHelp);
     qs('#btn-scoreboard').addEventListener('click', openScoreboard);
+    qs('#team-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      App.setTeam({ name: qs('#team-name').value, short: qs('#team-short').value });
+      qs('#team-dialog').close();
+      notice('info', 'Team name saved.');
+    });
 
 
     global.addEventListener('resize', function () {
@@ -4662,6 +4721,29 @@ body.mode-touch .touchbar {
    * Everything the offence cannot score by itself: defensive and special
    * teams points, and the other side's whole scoreboard.
    */
+  /*
+   * The browser's confirm() is blocked outright in a sandboxed frame, so a
+   * destructive action would silently do nothing. Ask in the page instead.
+   */
+  function askConfirm(title, text, label, onYes) {
+    var dlg = qs('#confirm-dialog');
+    qs('#confirm-title').textContent = title;
+    qs('#confirm-text').textContent = text;
+    var yes = qs('#confirm-yes');
+    yes.textContent = label;
+    yes.onclick = function () { dlg.close(); onYes(); };
+    qs('#confirm-no').onclick = function () { dlg.close(); };
+    dlg.showModal();
+    qs('#confirm-no').focus();
+  }
+
+  function openTeam() {
+    qs('#team-name').value = App.db.team.name;
+    qs('#team-short').value = App.db.team.short;
+    qs('#team-dialog').showModal();
+    qs('#team-name').focus();
+  }
+
   function openScoreboard() {
     var g = App.activeGame();
     var c = App.computed;
@@ -4669,15 +4751,15 @@ body.mode-touch .touchbar {
     D.clear(host);
 
     host.appendChild(el('div', { class: 'final-score' }, [
-      el('div', {}, [el('div', { class: 'status-lbl', text: 'Us' }),
+      el('div', {}, [el('div', { class: 'status-lbl', text: App.db.team.name }),
         el('div', { class: 'final-num', text: String(c.score) })]),
-      el('div', {}, [el('div', { class: 'status-lbl', text: 'Them' }),
+      el('div', {}, [el('div', { class: 'status-lbl', text: g.opponent || 'Opponent' }),
         el('div', { class: 'final-num', text: String(c.opponentScore) })])
     ]));
 
     host.appendChild(el('p', {
       class: 'hint',
-      text: 'Our offence scores itself off the chart (' + c.offenseScore +
+      text: App.db.team.name + '\u2019s offence scores itself off the chart (' + c.offenseScore +
             ' from touchdowns, tries and field goals). Add anything else here.'
     }));
 
@@ -4688,7 +4770,7 @@ body.mode-touch .touchbar {
       }, [label + ' +' + points]);
     }
 
-    host.appendChild(el('h2', { text: 'Add for us' }));
+    host.appendChild(el('h2', { text: 'Add for ' + App.db.team.name }));
     host.appendChild(el('div', { class: 'row wrap' }, [
       add('us', 'def-td', 6, 'Defensive TD'),
       add('us', 'st-td', 6, 'Return TD'),
@@ -4698,7 +4780,7 @@ body.mode-touch .touchbar {
       add('us', 'fg', 3, 'Field goal')
     ]));
 
-    host.appendChild(el('h2', { text: 'Add for them', style: 'margin-top:1rem' }));
+    host.appendChild(el('h2', { text: 'Add for ' + (g.opponent || 'the opponent'), style: 'margin-top:1rem' }));
     host.appendChild(el('div', { class: 'row wrap' }, [
       add('them', 'td', 7, 'TD + PAT'),
       add('them', 'td', 6, 'TD only'),
@@ -4713,7 +4795,8 @@ body.mode-touch .touchbar {
       entries.slice().reverse().forEach(function (e) {
         list.appendChild(el('div', { class: 'score-entry' }, [
           el('span', { class: 'pts', text: '+' + e.points }),
-          el('span', { class: 'who', text: e.team === 'us' ? 'US' : 'THEM' }),
+          el('span', { class: 'who', text: e.team === 'us'
+            ? App.db.team.short : shortName(g.opponent, 'OPP') }),
           el('span', { class: 'grow', text: e.note || e.kind }),
           el('button', {
             type: 'button', class: 'btn btn-sm',
@@ -4809,11 +4892,12 @@ body.mode-touch .touchbar {
           saved.length ? el('button', {
             type: 'button', class: 'btn btn-sm',
             onclick: function () {
-              if (global.confirm('Clear the ' + saved.length + ' saved ' + pair[1].toLowerCase() + '? ' +
-                  'Terms already used on a play will still be suggested.')) {
-                App.clearTerms(field);
-                openTerms();
-              }
+              askConfirm('Clear saved ' + pair[1].toLowerCase() + '?',
+                'Removes the ' + saved.length + ' you added by hand. Terms already used on a ' +
+                'play will still be suggested.', 'Clear', function () {
+                  App.clearTerms(field);
+                  openTerms();
+                });
             }
           }, ['Clear saved']) : null
         ])
@@ -4869,6 +4953,8 @@ body.mode-touch .touchbar {
     };
     qs('#our-score').textContent = App.computed.score;
     qs('#their-score').textContent = App.computed.opponentScore;
+    qs('#our-name').textContent = App.db.team.short;
+    qs('#their-name').textContent = shortName(game.opponent, 'OPP');
   }
 
   function renderBanners(c) {
@@ -5207,6 +5293,20 @@ body.mode-touch .touchbar {
     return el('button', { type: 'button', class: 'btn btn-sm', onclick: fn }, [label]);
   }
 
+  /*
+   * A scoreboard-sized name. Keeps an abbreviation someone already typed,
+   * otherwise takes the first word of the opponent, which is how a scoreboard
+   * would have it anyway.
+   */
+  function shortName(name, fallback) {
+    var t = String(name || '').trim();
+    if (!t) return fallback;
+    if (t.length <= 10) return t.toUpperCase();
+    // Too long for a scoreboard: the first word is what people say anyway
+    // ("Central High School" is Central), and only that gets clipped.
+    return t.split(/\s+/)[0].slice(0, 10).toUpperCase();
+  }
+
   function gameTitle(g) {
     var vs = g.venue === 'away' ? ' at ' : (g.venue === 'neutral' ? ' vs ' : ' vs ');
     return (g.name || 'Game') + (g.opponent ? vs + g.opponent : '') +
@@ -5427,6 +5527,7 @@ body.mode-touch .touchbar {
     host.appendChild(el('div', { class: 'row wrap', style: 'margin-bottom:.8rem' }, [
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { openGameDialog('new'); } }, ['New game']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: openSummary }, ['Game summary']),
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: openTeam }, ['Our team']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: openTerms }, ['Term library']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: openGoals }, ['Season goals']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { openGameDialog('edit'); } }, ['Edit this game']),
@@ -5453,7 +5554,9 @@ body.mode-touch .touchbar {
           el('button', {
             type: 'button', class: 'btn btn-sm',
             onclick: function () {
-              if (global.confirm('Delete "' + (g.name || 'Untitled') + '" and everything charted in it?')) App.deleteGame(g.id);
+              askConfirm('Delete this game?',
+                '\u201C' + gameTitle(g) + '\u201D and every play in it. This cannot be undone.',
+                'Delete game', function () { App.deleteGame(g.id); });
             }
           }, ['Delete'])
         ])

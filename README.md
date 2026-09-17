@@ -42,6 +42,7 @@ keeps working from memory for the session.
 
 | | |
 |---|---|
+| **Team name** | Set once in **Games → Our team** (name and a short scoreboard form). The scoreboard reads `SV 21 – CENTRAL 14`; the other side is named from each game's opponent. |
 | **Game details** | Name, opponent, date and home/away/neutral, set from the Games tab. The game reads back as *Week 3 at Central (away)*. |
 | **Yard lines** | A bare number is **their** side: `40` is their 40. A minus makes it ours: `-25` is our own 25. `50` is midfield either way. `+40`, `o25` and `opp40` still work. Only one half of the field needs a keystroke, and it's the one you say out loud anyway. |
 | **What you type** | The starting spot of each drive, and the snap spot of each play. Nothing else about field position. |
@@ -160,10 +161,10 @@ put a wrong number on the board with no way back to it:
 
 ## Look and feel
 
-Black, Vegas gold and white. The neutrals are pulled a few degrees warm so they sit with
-the gold instead of fighting it, and gold never carries small text on white, where it
-would not hold contrast — it marks first downs, selected states, the primary action and
-the focus ring, all with near-black text on it.
+Black, white, and Vegas gold **used sparingly**. Black carries the work — primary actions,
+selected states, the type. Gold is saved for the few things worth marking: the team name,
+a first down, the ball's position, the focus ring, and run against pass in the tendency
+bars. Spent everywhere, an accent stops meaning anything.
 
 Display type is **Teko**, embedded as a 15KB data URI: no network, no fallback flash,
 parsed once. It carries the scoreboard numbers, headings, tabs and yard lines. Form fields
