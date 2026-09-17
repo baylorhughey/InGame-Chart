@@ -1,4 +1,4 @@
-# In-Game Chart — offensive play chart (Phase 1)
+# In-Game Chart — offensive play chart
 
 A sideline replacement for the handwritten offensive chart (Down, Distance, Yard Line,
 Formation, Motion, Play, #, Yards +/-) that produces a full box score the moment the game
@@ -87,6 +87,10 @@ Layout menu overrides it.
   consumes one. A penalty that carries the ball past the line to gain is still a first down.
 - **Half the distance to the goal** is applied automatically, from the spot the flag is
   walked off from.
+- **A flag not walked off from the snap** — holding downfield on a run, enforced from the
+  spot of the foul — takes a **Ball ended at** yard line, and the chart follows the ball
+  instead of the arithmetic. Without it the line to gain would stay wrong for the rest of
+  the series.
 - **Turnover on downs is detected, never selected.** A 4th-down play that comes up short and
   isn't a score ends the drive by itself once it resolves.
 - **Penalties wipe the play by default** — no carry, catch, yardage or TD credited to anyone,
@@ -189,8 +193,37 @@ Formation, motion and play call are **plain strings** on the record. The Phase 2
 autocomplete library and spreadsheet import can be layered on top without migrating a
 single stored game.
 
-## Not in Phase 1, by design
+## Scoreboard
 
-No defensive or opponent-offense charting, no play diagrams, no cloud sync or accounts, no
-formation/play autocomplete or spreadsheet import, no goals/report feature (3rd down %,
-yardage thresholds), no opponent score, and no polish beyond the Export/Import above.
+The offence scores itself off the chart: 6 for a touchdown, the conversion, and 3 for a
+made field goal (**FG good**, a drive action). Everything else is entered by hand — click
+the scoreboard in the top bar for defensive and return touchdowns, safeties, and the whole
+opponent side. Manual entries are listed there and can be removed.
+
+## Report and goals
+
+**Report** grades the game against season targets — 3rd down %, yards per play, explosive
+plays, turnovers, points — each marked hit or miss, with nothing scored where nothing
+happened. Underneath: 3rd and 4th down, explosive runs and passes, red zone trips and
+touchdowns, scoring drives, three-and-outs, turnovers, first downs, yards per play. With
+more than one game charted, the season totals sit below the game.
+
+Targets live in **Edit season goals**, including what counts as an explosive run or pass
+(12 and 16 yards by default). They travel with your data.
+
+A red zone *trip* means a snap inside their 20 — the situation the number is actually
+asking about. A 40-yard touchdown run passes through the red zone without testing it.
+
+## Formation, motion and play call
+
+These suggest as you type, drawn from **everything you have already charted**, most-used
+first. Arrow keys move through the list, `Enter` takes the highlighted one — and `Enter`
+with nothing highlighted still logs the play, so the list can never cost you a snap.
+
+**Term library** in the Games tab adds your own: type them, or paste a column straight out
+of a spreadsheet — one per line or comma separated. Bare numbers are skipped. Terms already
+used on a play are always suggested whether or not they are saved.
+
+## Not built, by design
+
+No defensive or opponent-offense charting, no play diagrams, no cloud sync or accounts.

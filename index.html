@@ -16,26 +16,33 @@
  * daylight, where a dark UI washes out.
  */
 
+/*
+ * Neutrals are cooled a few degrees toward the accent so the greys read as
+ * chosen rather than inherited. High contrast on a light ground is deliberate:
+ * this is read on a sideline in daylight, where a dark UI washes out.
+ */
 :root {
-  --ink: #10151c;
-  --ink-2: #4a5763;
-  --ink-3: #6f7c8a;
-  --line: #c9d2da;
-  --line-2: #e3e9ee;
-  --bg: #f2f5f8;
+  --ink: #0e1620;
+  --ink-2: #475666;
+  --ink-3: #6d7d8e;
+  --line: #c6d0da;
+  --line-2: #e4eaf0;
+  --bg: #eef2f6;
   --paper: #ffffff;
-  --accent: #0b4f9e;
+  --accent: #0a4a93;
   --accent-ink: #ffffff;
-  --accent-soft: #e5eefb;
-  --good: #10693a;
-  --good-soft: #e2f4ea;
-  --bad: #a3231f;
+  --accent-soft: #e4eefb;
+  --good: #0f6b3c;
+  --good-soft: #e0f3e8;
+  --bad: #a52220;
   --bad-soft: #fdeceb;
-  --warn: #8a5a00;
-  --warn-soft: #fdf3de;
-  --flag: #6b4b00;
-  --radius: 8px;
+  --warn: #8a5600;
+  --warn-soft: #fdf2db;
+  --flag: #7a5600;
+  --radius: 10px;
   --tap: 44px;
+  --shadow-1: 0 1px 2px rgba(14, 22, 32, 0.06);
+  --shadow-2: 0 2px 10px rgba(14, 22, 32, 0.08);
   --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -62,12 +69,12 @@ html, body {
 body { padding-bottom: env(safe-area-inset-bottom); }
 
 h2 {
-  font-size: 0.78rem;
-  letter-spacing: 0.09em;
+  font-size: 0.72rem;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--ink-3);
   margin: 0 0 0.6rem;
-  font-weight: 700;
+  font-weight: 750;
 }
 
 code { font-family: var(--mono); font-size: 0.9em; }
@@ -165,12 +172,14 @@ code { font-family: var(--mono); font-size: 0.9em; }
   font-weight: 700;
 }
 .big {
-  font-size: 2rem;
-  font-weight: 800;
-  line-height: 1.05;
+  font-size: 2.15rem;
+  font-weight: 820;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.status-dd .big { color: var(--accent); }
 .status-meta strong { font-variant-numeric: tabular-nums; }
 
 .tag {
@@ -205,7 +214,8 @@ main {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 0.85rem;
+  padding: 0.9rem;
+  box-shadow: var(--shadow-1);
 }
 .panel-accent { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
@@ -268,8 +278,13 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
 .btn:hover { background: var(--line-2); }
 .btn:active { transform: translateY(1px); }
 .btn-tall { min-height: var(--tap); padding-inline: 1rem; }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn-primary:hover { filter: brightness(1.1); }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-1);
+}
+.btn-primary:hover { background: #0b56ab; }
 .btn-good { background: var(--good); border-color: var(--good); color: #fff; }
 .btn-bad { background: var(--bad); border-color: var(--bad); color: #fff; }
 .btn-quiet { color: var(--ink-2); background: transparent; }
@@ -363,6 +378,24 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
   gap: 0.6rem;
   background: #fbfcfd;
 }
+.field { position: relative; }
+.ac {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 8px 20px rgba(16, 21, 28, 0.16);
+  max-height: 15rem;
+  overflow-y: auto;
+}
+.ac-opt { padding: 0.4rem 0.6rem; cursor: pointer; font-weight: 600; }
+.ac-opt:hover, .ac-opt.on { background: var(--accent); color: var(--accent-ink); }
+
 .pf-grid > .pf-span { grid-column: 1 / -1; }
 .pf-context:empty, .pf-context[hidden] { display: none; }
 .pf-submit { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
@@ -394,6 +427,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
   cursor: pointer;
   white-space: nowrap;
 }
+.tab:hover { color: var(--ink); }
 .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 
 .tabpanels { margin-top: 0.7rem; }
@@ -405,12 +439,14 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
-  background: var(--paper);
+  background: linear-gradient(180deg, #fbfdff, var(--paper));
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 0.6rem 0.75rem;
   margin-bottom: 0.6rem;
+  box-shadow: var(--shadow-1);
 }
+.drive-head h3 { letter-spacing: -0.01em; }
 .drive-head h3 { margin: 0; font-size: 1rem; }
 .drive-head .meta { color: var(--ink-2); font-size: 0.88rem; }
 
@@ -431,21 +467,22 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
 
 .play {
   display: grid;
-  grid-template-columns: 2.4rem 5.4rem 4.2rem 1fr 4.5rem 2rem;
+  grid-template-columns: 2.4rem 5.4rem 4.2rem 1fr 4.6rem 2rem;
   gap: 0.5rem;
   align-items: center;
   width: 100%;
   text-align: left;
   font: inherit;
   background: var(--paper);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-2);
   border-left: 4px solid var(--line);
-  border-radius: 6px;
-  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
   cursor: pointer;
   min-height: var(--tap);
+  transition: background 90ms ease, border-color 90ms ease;
 }
-.play:hover { background: #f7fafd; }
+.play:hover { background: #f6fafe; border-color: var(--line); }
 .play.is-pending { border-left-color: var(--warn); background: var(--warn-soft); }
 .play.is-td { border-left-color: var(--good); }
 .play.is-first { border-left-color: var(--accent); }
@@ -453,7 +490,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
 .play.is-turnover { border-left-color: var(--bad); }
 .play.is-conv { border-left-color: var(--ink-3); background: #fafbfc; }
 
-.play .p-no { color: var(--ink-3); font-weight: 700; font-variant-numeric: tabular-nums; }
+.play .p-no { color: var(--ink-3); font-weight: 700; font-variant-numeric: tabular-nums; font-size: .85rem; }
 .play .p-dd { font-weight: 700; font-variant-numeric: tabular-nums; }
 .play .p-spot { font-weight: 700; font-variant-numeric: tabular-nums; }
 .play .p-desc { min-width: 0; }
@@ -461,9 +498,10 @@ input:focus-visible, select:focus-visible, button:focus-visible, .seg-btn:focus-
 .play .p-desc .sub { color: var(--ink-2); font-size: 0.83rem; }
 .play .p-yds {
   text-align: right;
-  font-weight: 800;
+  font-weight: 820;
   font-variant-numeric: tabular-nums;
-  font-size: 1.05rem;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
 }
 .play .p-yds.neg { color: var(--bad); }
 .play .p-yds.pend { color: var(--warn); font-size: 0.8rem; font-weight: 700; }
@@ -499,7 +537,9 @@ table.stats {
   border-radius: var(--radius);
   overflow: hidden;
   font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-1);
 }
+table.stats td:first-child { font-weight: 650; }
 table.stats th, table.stats td {
   padding: 0.45rem 0.6rem;
   text-align: right;
@@ -508,11 +548,13 @@ table.stats th, table.stats td {
 }
 table.stats th:first-child, table.stats td:first-child { text-align: left; }
 table.stats thead th {
-  background: var(--line-2);
-  font-size: 0.7rem;
-  letter-spacing: 0.07em;
+  background: #f3f7fb;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--ink-2);
+  font-weight: 750;
 }
 table.stats tfoot td { font-weight: 800; background: #f7fafd; }
 table.stats tr:last-child td { border-bottom: none; }
@@ -525,7 +567,7 @@ table.stats tr:last-child td { border-bottom: none; }
   border-radius: var(--radius);
   padding: 0;
   width: min(620px, 94vw);
-  box-shadow: 0 18px 50px rgba(16, 21, 28, 0.32);
+  box-shadow: 0 24px 60px rgba(14, 22, 32, 0.34);
   color: var(--ink);
   background: var(--paper);
 }
@@ -568,6 +610,55 @@ table.stats tr:last-child td { border-bottom: none; }
   overflow-wrap: normal;
   overflow-x: auto;
 }
+
+.scorechip {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  background: #1d2530;
+  border: 1px solid #38424f;
+  border-radius: var(--radius);
+  padding: 0.2rem 0.65rem;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.scorechip:hover { background: #26303d; }
+.scorechip strong { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.sc-dash { color: #6b7a8a; }
+
+.goal-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--line-2);
+}
+.goal-row:last-child { border-bottom: none; }
+.goal-val { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+.goal-target { color: var(--ink-3); font-size: 0.85rem; white-space: nowrap; }
+.goal-hit { color: var(--good); }
+.goal-miss { color: var(--bad); }
+.goal-none { color: var(--ink-3); }
+.goals { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
+
+.score-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.8rem; }
+.score-entry {
+  display: flex; align-items: center; gap: 0.6rem;
+  border: 1px solid var(--line); border-radius: 6px; padding: 0.4rem 0.6rem;
+}
+.score-entry .pts { font-weight: 800; font-variant-numeric: tabular-nums; min-width: 2.2rem; }
+.score-entry .who { font-weight: 700; }
+.score-entry .grow { color: var(--ink-3); font-size: 0.86rem; }
+
+.term-block { margin-bottom: 1.2rem; }
+.term-list { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0; }
+.term-chip {
+  background: var(--line-2); border-radius: 999px; padding: 0.2rem 0.6rem;
+  font-size: 0.85rem; font-weight: 600;
+}
+#terms-body textarea { width: 100%; font-family: var(--mono); font-size: 0.82rem; }
 
 .final-score {
   display: flex;
@@ -736,9 +827,11 @@ body.mode-touch .touchbar {
     <select id="game-select" aria-label="Active game"></select>
   </label>
 
-  <div class="scorechip" title="Our score, from what is charted">
-    <span class="lbl">US</span><strong id="our-score">0</strong>
-  </div>
+  <button type="button" class="scorechip" id="btn-scoreboard" title="Scoreboard — click to add defensive, special teams or opponent points">
+    <span><span class="lbl">US</span> <strong id="our-score">0</strong></span>
+    <span class="sc-dash">&ndash;</span>
+    <span><span class="lbl">THEM</span> <strong id="their-score">0</strong></span>
+  </button>
 
   <div class="grow"></div>
 
@@ -816,6 +909,7 @@ body.mode-touch .touchbar {
       <h2>Drive actions</h2>
       <div class="row wrap" id="quick-actions">
         <button type="button" class="btn" data-end="punt" accesskey="p">Punt</button>
+        <button type="button" class="btn" data-end="fg-good">FG good</button>
         <button type="button" class="btn" data-end="missed-fg">Missed FG</button>
         <button type="button" class="btn" data-end="half" accesskey="h">End half</button>
         <button type="button" class="btn" data-end="game">End game</button>
@@ -831,12 +925,14 @@ body.mode-touch .touchbar {
       <button type="button" class="tab" role="tab" data-tab="drive" accesskey="1">This drive</button>
       <button type="button" class="tab" role="tab" data-tab="plays" accesskey="2">All plays</button>
       <button type="button" class="tab" role="tab" data-tab="box" accesskey="3">Box score</button>
+      <button type="button" class="tab" role="tab" data-tab="report" accesskey="5">Report</button>
       <button type="button" class="tab" role="tab" data-tab="games" accesskey="4">Games</button>
     </nav>
     <div class="tabpanels">
       <div class="tabpanel" id="tab-drive" role="tabpanel"></div>
       <div class="tabpanel" id="tab-plays" role="tabpanel" hidden></div>
       <div class="tabpanel" id="tab-box" role="tabpanel" hidden></div>
+      <div class="tabpanel" id="tab-report" role="tabpanel" hidden></div>
       <div class="tabpanel" id="tab-games" role="tabpanel" hidden></div>
     </div>
   </section>
@@ -958,6 +1054,51 @@ body.mode-touch .touchbar {
   </div>
 </dialog>
 
+<dialog id="score-dialog" class="dlg">
+  <form method="dialog" class="dlg-head">
+    <h2>Scoreboard</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body" id="score-body"></div>
+</dialog>
+
+<dialog id="goals-dialog" class="dlg">
+  <form method="dialog" class="dlg-head">
+    <h2>Season goals</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body">
+    <p class="hint">Targets every game is graded against. They travel with your data.</p>
+    <form id="goals-form" class="pf-grid">
+      <label class="field"><span class="lbl">3rd down %</span>
+        <input type="text" id="goal-third" inputmode="decimal"></label>
+      <label class="field"><span class="lbl">Yards per play</span>
+        <input type="text" id="goal-ypp" inputmode="decimal"></label>
+      <label class="field"><span class="lbl">Explosive plays</span>
+        <input type="text" id="goal-explosives" inputmode="numeric"></label>
+      <label class="field"><span class="lbl">Turnovers (at most)</span>
+        <input type="text" id="goal-turnovers" inputmode="numeric"></label>
+      <label class="field"><span class="lbl">Points</span>
+        <input type="text" id="goal-points" inputmode="numeric"></label>
+      <label class="field"><span class="lbl">Explosive run is</span>
+        <input type="text" id="goal-exrun" inputmode="numeric"></label>
+      <label class="field"><span class="lbl">Explosive pass is</span>
+        <input type="text" id="goal-expass" inputmode="numeric"></label>
+      <div class="field" style="justify-content:flex-end">
+        <button type="submit" class="btn btn-primary btn-tall">Save goals</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<dialog id="terms-dialog" class="dlg dlg-wide">
+  <form method="dialog" class="dlg-head">
+    <h2>Formation, motion &amp; play call library</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body" id="terms-body"></div>
+</dialog>
+
 <dialog id="summary-dialog" class="dlg dlg-wide">
   <form method="dialog" class="dlg-head">
     <h2 id="summary-title">Game summary</h2>
@@ -1047,6 +1188,85 @@ body.mode-touch .touchbar {
     var input = el('input', { type: 'checkbox', id: opts.id });
     var wrap = el('label', { class: 'toggle ' + (opts.class || '') }, [input, el('span', { text: opts.label })]);
     return { wrap: wrap, input: input };
+  }
+
+  /*
+   * Type-ahead on a free-text field, fed by whatever the coach has already
+   * typed this season. Arrow keys move, Enter takes the highlighted one,
+   * Esc dismisses. Enter with nothing highlighted is left alone so it still
+   * logs the play - the suggestion list must never cost a snap.
+   */
+  function autocomplete(input, getItems) {
+    var list = el('div', { class: 'ac', hidden: true, role: 'listbox' });
+    input.parentNode.appendChild(list);
+    input.setAttribute('autocomplete', 'off');
+    var shown = [], active = -1;
+
+    function matches(q) {
+      var all = getItems() || [];
+      if (!q) return all.slice(0, 8);
+      var needle = q.toLowerCase();
+      var starts = [], has = [];
+      all.forEach(function (t) {
+        var i = t.toLowerCase().indexOf(needle);
+        if (i === 0) starts.push(t);
+        else if (i > 0) has.push(t);
+      });
+      return starts.concat(has).slice(0, 8);
+    }
+
+    function close() { list.hidden = true; active = -1; }
+
+    function paint() {
+      while (list.firstChild) list.removeChild(list.firstChild);
+      shown.forEach(function (t, i) {
+        var opt = el('div', {
+          class: 'ac-opt' + (i === active ? ' on' : ''), role: 'option', text: t,
+          'aria-selected': i === active ? 'true' : 'false'
+        });
+        // mousedown, not click: blur would close the list first.
+        opt.addEventListener('mousedown', function (ev) { ev.preventDefault(); accept(t); });
+        list.appendChild(opt);
+      });
+      list.hidden = !shown.length;
+    }
+
+    function accept(text) {
+      input.value = text;
+      close();
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function open() {
+      if (input.disabled) return;
+      shown = matches(input.value.trim());
+      active = -1;
+      paint();
+    }
+
+    input.addEventListener('input', open);
+    input.addEventListener('focus', open);
+    input.addEventListener('blur', function () { setTimeout(close, 120); });
+
+    input.addEventListener('keydown', function (ev) {
+      if (list.hidden || !shown.length) return;
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        active = (active + (ev.key === 'ArrowDown' ? 1 : -1) + shown.length + 1) % (shown.length + 1);
+        if (active === shown.length) active = -1;   // back to what was typed
+        paint();
+        return;
+      }
+      if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); close(); return; }
+      if ((ev.key === 'Enter' || ev.key === 'Tab') && active > -1) {
+        // Only swallow Enter when a suggestion is actually highlighted.
+        ev.preventDefault();
+        ev.stopPropagation();
+        accept(shown[active]);
+      }
+    });
+
+    return { close: close };
   }
 
   /*
@@ -1180,7 +1400,8 @@ body.mode-touch .touchbar {
 
   FB.dom = {
     el: el, qs: qs, qsa: qsa, clear: clear, show: show,
-    field: field, toggle: toggle, segment: segment, select: select
+    field: field, toggle: toggle, segment: segment, select: select,
+    autocomplete: autocomplete
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
@@ -1221,6 +1442,9 @@ body.mode-touch .touchbar {
       date: attrs.date || nowIso().slice(0, 10),
       createdAt: attrs.createdAt || nowIso(),
       finishedAt: attrs.finishedAt || null,
+      // Points that no offensive snap can explain: defence, special teams,
+      // and everything the other side scored.
+      scoring: (attrs.scoring || []).map(makeScore),
       drives: [],
       plays: []
     };
@@ -1293,6 +1517,22 @@ body.mode-touch .touchbar {
     return p;
   }
 
+  /*
+   * One scoreboard entry entered by hand. `team` is whose points these are;
+   * the offence's own touchdowns are never in here - they come off the chart.
+   */
+  function makeScore(attrs) {
+    attrs = attrs || {};
+    return {
+      id: attrs.id || uid('s'),
+      team: attrs.team === 'them' ? 'them' : 'us',
+      kind: attrs.kind || 'other',      // def-td | st-td | fg | safety | pat | two | other
+      points: Number(attrs.points) || 0,
+      note: attrs.note || '',
+      ts: attrs.ts || nowIso()
+    };
+  }
+
   function makePenalty(attrs) {
     attrs = attrs || {};
     return {
@@ -1301,7 +1541,11 @@ body.mode-touch .touchbar {
       autoFirst: !!attrs.autoFirst,
       beyondLOS: !!attrs.beyondLOS,
       underlyingType: attrs.underlyingType || 'none',  // none | run | pass
-      creditedYards: Number(attrs.creditedYards) || 0
+      creditedYards: Number(attrs.creditedYards) || 0,
+      // Where the ball actually ended up, when the flag was not walked off
+      // from the snap - a foul enforced from its own spot, say. Overrides the
+      // computed walk-off entirely.
+      endedAt: attrs.endedAt == null || attrs.endedAt === '' ? null : Number(attrs.endedAt)
     };
   }
 
@@ -1317,8 +1561,25 @@ body.mode-touch .touchbar {
     });
   }
 
+  // Season-wide targets the report grades each game against.
+  function defaultGoals() {
+    return {
+      thirdDownPct: 45,
+      yardsPerPlay: 5.5,
+      explosives: 6,
+      explosiveRun: 12,
+      explosivePass: 16,
+      turnovers: 1,
+      points: 28
+    };
+  }
+
   function emptyDb() {
-    return { version: SCHEMA_VERSION, activeGameId: null, games: [] };
+    return {
+      version: SCHEMA_VERSION, activeGameId: null, games: [],
+      goals: defaultGoals(),
+      terms: { formation: [], motion: [], playCall: [] }
+    };
   }
 
   // Accepts anything that looks like our export and fills in missing fields,
@@ -1328,6 +1589,16 @@ body.mode-touch .touchbar {
     if (!raw || typeof raw !== 'object') return db;
     db.version = SCHEMA_VERSION;
     db.activeGameId = raw.activeGameId || null;
+    var goals = defaultGoals();
+    Object.keys(goals).forEach(function (k) {
+      var v = raw.goals ? Number(raw.goals[k]) : NaN;
+      if (isFinite(v)) goals[k] = v;
+    });
+    db.goals = goals;
+    ['formation', 'motion', 'playCall'].forEach(function (k) {
+      var list = raw.terms && Array.isArray(raw.terms[k]) ? raw.terms[k] : [];
+      db.terms[k] = list.map(String).filter(Boolean);
+    });
     var games = Array.isArray(raw.games) ? raw.games : [];
     db.games = games.map(function (g) {
       var game = makeGame(g);
@@ -1336,6 +1607,7 @@ body.mode-touch .touchbar {
         drive.gameId = game.id;
         return drive;
       });
+      game.scoring = (g.scoring || []).map(makeScore);
       game.plays = (g.plays || []).map(function (p) {
         var play = makePlay(p);
         play.gameId = game.id;
@@ -1354,11 +1626,13 @@ body.mode-touch .touchbar {
     uid: uid,
     nowIso: nowIso,
     makeGame: makeGame,
+    makeScore: makeScore,
     makeDrive: makeDrive,
     makePlay: makePlay,
     makePenalty: makePenalty,
     makePat: makePat,
     emptyDb: emptyDb,
+    defaultGoals: defaultGoals,
     normalizeDb: normalizeDb
   };
 });
@@ -1506,7 +1780,7 @@ body.mode-touch .touchbar {
     var pen = penaltyOf(p);
     var out = {
       snapFp: snapFp, endFp: null, yards: null, statYards: 0,
-      pending: false, halved: false, penaltyYards: 0
+      pending: false, halved: false, penaltyYards: 0, spotStated: false
     };
 
     var ovYards = optNum(ov.yards);
@@ -1518,16 +1792,31 @@ body.mode-touch .touchbar {
     }
 
     if (pen) {
-      // Beyond the LOS: the underlying play happened, so credited yards move
-      // the ball first and the flag is walked off from there.
       var credited = pen.beyondLOS ? creditedYards(p) : 0;
+      out.statYards = pen.beyondLOS ? credited : 0;
+
+      /*
+       * Not every flag is walked off from the snap. A foul enforced from its
+       * own spot - holding downfield on a run, say - can leave the ball
+       * somewhere the arithmetic here would never reach, and guessing wrong
+       * poisons the line to gain for the rest of the series. So when the
+       * coach states the spot, it wins outright.
+       */
+      if (pen.endedAt != null) {
+        out.endFp = clampFp(fieldPos(pen.endedAt));
+        out.yards = round1(out.endFp - snapFp);
+        out.spotStated = true;
+        return out;
+      }
+
+      // Otherwise: credited yards move the ball first, and the flag is walked
+      // off from there.
       var enfFp = clampFp(snapFp + credited);
       var d = penaltyDelta(enfFp, pen.on, pen.yards);
       out.penaltyYards = d.delta;
       out.halved = d.halved;
       out.endFp = clampFp(enfFp + d.delta);
       out.yards = round1(out.endFp - snapFp);
-      out.statYards = pen.beyondLOS ? credited : 0;
       return out;
     }
 
@@ -1643,6 +1932,7 @@ body.mode-touch .touchbar {
         pending: r.pending,
         halved: r.halved,
         penaltyYards: r.penaltyYards,
+        spotStated: r.spotStated,
         firstDown: false,
         driveEnd: null
       };
@@ -1697,6 +1987,7 @@ body.mode-touch .touchbar {
       else { conv = { type: 'two', good: !!cp.td, id: cp.id }; if (cp.td) points += 2; }
     }
     if (ended === 'td') points += 6;
+    if (ended === 'fg-good') points += 3;
 
     var net = 0, live = 0;
     for (var k = 0; k < rows.length; k++) {
@@ -1731,6 +2022,14 @@ body.mode-touch .touchbar {
   /* ---------------------------------------------------------------- *
    * Box score
    * ---------------------------------------------------------------- */
+
+  // What counts as an explosive play. setGoals() keeps these in step with
+  // whatever the coach set, so the report and the targets never disagree.
+  var EXPLOSIVE = { run: 12, pass: 16 };
+  function setExplosive(run, pass) {
+    if (isFinite(run) && run > 0) EXPLOSIVE.run = Number(run);
+    if (isFinite(pass) && pass > 0) EXPLOSIVE.pass = Number(pass);
+  }
 
   function blankPass() { return { att: 0, comp: 0, yards: 0, td: 0, int: 0, sacks: 0 }; }
   function blankRush() { return { carries: 0, yards: 0, td: 0 }; }
@@ -1839,6 +2138,14 @@ body.mode-touch .touchbar {
 
     (game.plays || []).forEach(function (p) { creditPlay(box, p, rowsById[p.id]); });
 
+    // Points the offence cannot explain: defence, special teams, and theirs.
+    var manual = { us: 0, them: 0 };
+    (game.scoring || []).forEach(function (e) {
+      manual[e.team === 'them' ? 'them' : 'us'] += Number(e.points) || 0;
+    });
+    var offenseScore = score;
+    score += manual.us;
+
     var last = drives.length ? drives[drives.length - 1] : null;
     var current = {
       driveIndex: drives.length - 1,
@@ -1856,14 +2163,79 @@ body.mode-touch .touchbar {
       nextSpot: (last && !last.pending && !last.ended) ? toSigned(last.ballFp) : null
     };
 
+    var t = totals(game, rowsById, drives);
     return {
       drives: drives,
       rows: rowsById,
       box: box,
       score: score,
+      offenseScore: offenseScore,
+      opponentScore: manual.them,
+      manualScore: manual.us,
       current: current,
-      totals: totals(game, rowsById, drives)
+      totals: t,
+      report: report(game, rowsById, drives, t, score)
     };
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Report: the handful of numbers a coach actually reviews.
+   * ---------------------------------------------------------------- */
+
+  function report(game, rows, drives, t, score) {
+    var r = {
+      thirdDownAtt: 0, thirdDownConv: 0,
+      fourthDownAtt: 0, fourthDownConv: 0,
+      explosiveRuns: 0, explosivePasses: 0,
+      redZoneTrips: 0, redZoneTds: 0, redZoneScores: 0,
+      turnovers: 0, turnoverOnDowns: 0,
+      scoringDrives: 0, threeAndOuts: 0,
+      points: score, plays: t.plays, yards: t.yards,
+      firstDowns: t.firstDowns, drives: drives.length,
+      yardsPerPlay: t.plays ? round1(t.yards / t.plays) : 0
+    };
+
+    (game.plays || []).forEach(function (p) {
+      var row = rows[p.id];
+      if (!row || !isLive(p) || row.pending) return;
+      var converted = row.firstDown || !!p.td;
+
+      // A standalone penalty replays the down, so it was never an attempt.
+      if (!isStandalonePenalty(p)) {
+        if (row.down === 3) { r.thirdDownAtt += 1; if (converted) r.thirdDownConv += 1; }
+        if (row.down === 4) { r.fourthDownAtt += 1; if (converted) r.fourthDownConv += 1; }
+      }
+
+      var pen = penaltyOf(p);
+      var type = pen ? (pen.beyondLOS ? pen.underlyingType : null) : p.playType;
+      var gained = row.statYards || 0;
+      if (type === 'run' && gained >= EXPLOSIVE.run) r.explosiveRuns += 1;
+      if (type === 'pass' && p.passOutcome === 'complete' && gained >= EXPLOSIVE.pass) r.explosivePasses += 1;
+    });
+
+    drives.forEach(function (d) {
+      // A trip means a snap inside their 20 - the situation red-zone
+      // efficiency is actually asking about. A 40-yard touchdown run passes
+      // through the red zone without ever testing it.
+      var reached = d.rows.some(function (row) { return row.snapFp >= 80; });
+      if (reached) {
+        r.redZoneTrips += 1;
+        if (d.ended === 'td') r.redZoneTds += 1;
+        if (d.ended === 'td' || d.ended === 'fg-good') r.redZoneScores += 1;
+      }
+      if (d.ended === 'fumble' || d.ended === 'interception') r.turnovers += 1;
+      if (d.ended === 'downs') r.turnoverOnDowns += 1;
+      if (d.ended === 'td' || d.ended === 'fg-good') r.scoringDrives += 1;
+      // Three snaps, no first down, punted it away.
+      if (d.rows.length <= 3 && d.ended === 'punt' &&
+          !d.rows.some(function (row) { return row.firstDown; })) r.threeAndOuts += 1;
+    });
+
+    r.explosives = r.explosiveRuns + r.explosivePasses;
+    r.thirdDownPct = r.thirdDownAtt ? round1(100 * r.thirdDownConv / r.thirdDownAtt) : null;
+    r.fourthDownPct = r.fourthDownAtt ? round1(100 * r.fourthDownConv / r.fourthDownAtt) : null;
+    r.redZoneTdPct = r.redZoneTrips ? round1(100 * r.redZoneTds / r.redZoneTrips) : null;
+    return r;
   }
 
   function totals(game, rows, drives) {
@@ -1894,6 +2266,8 @@ body.mode-touch .touchbar {
     resolvePlay: resolvePlay,
     computeDrive: computeDrive,
     computeGame: computeGame,
+    setExplosive: setExplosive,
+    EXPLOSIVE: EXPLOSIVE,
     creditPlay: creditPlay,
     formatDownDistance: formatDownDistance,
     isLive: isLive,
@@ -2302,6 +2676,7 @@ body.mode-touch .touchbar {
 
   App.init = function () {
     App.db = Store.load();
+    E.setExplosive(App.db.goals.explosiveRun, App.db.goals.explosivePass);
     if (!App.db.games.length) {
       var g = M.makeGame({ name: 'Game 1' });
       App.db.games.push(g);
@@ -2391,6 +2766,118 @@ body.mode-touch .touchbar {
     if (!g) return;
     g.finishedAt = null;
     App.commit();
+  };
+
+  /* ---------------- scoreboard ---------------- */
+
+  App.addScore = function (attrs) {
+    var g = App.activeGame();
+    if (!g) return null;
+    var e = M.makeScore(attrs);
+    g.scoring.push(e);
+    App.commit();
+    return e;
+  };
+
+  App.removeScore = function (id) {
+    var g = App.activeGame();
+    if (!g) return;
+    g.scoring = g.scoring.filter(function (e) { return e.id !== id; });
+    App.commit();
+  };
+
+  /* ---------------- goals ---------------- */
+
+  App.setGoals = function (patch) {
+    Object.keys(patch || {}).forEach(function (k) {
+      var v = Number(patch[k]);
+      if (isFinite(v)) App.db.goals[k] = v;
+    });
+    E.setExplosive(App.db.goals.explosiveRun, App.db.goals.explosivePass);
+    App.commit();
+  };
+
+  /*
+   * Grades a game's report against the season's targets. `ok` is null where
+   * nothing happened yet - no third downs means no verdict, not a failure.
+   */
+  App.gradeGoals = function (rep) {
+    var g = App.db.goals;
+    function row(key, label, value, target, dir, suffix) {
+      var ok = value == null ? null : (dir === 'down' ? value <= target : value >= target);
+      return { key: key, label: label, value: value, target: target, dir: dir, ok: ok, suffix: suffix || '' };
+    }
+    return [
+      row('thirdDownPct', '3rd down', rep.thirdDownPct, g.thirdDownPct, 'up', '%'),
+      row('yardsPerPlay', 'Yards per play', rep.plays ? rep.yardsPerPlay : null, g.yardsPerPlay, 'up', ''),
+      row('explosives', 'Explosive plays', rep.explosives, g.explosives, 'up', ''),
+      row('turnovers', 'Turnovers', rep.turnovers, g.turnovers, 'down', ''),
+      row('points', 'Points', rep.points, g.points, 'up', '')
+    ];
+  };
+
+  /* ---------------- term library (Phase 2 autocomplete) ---------------- */
+
+  /*
+   * Suggestions come from two places: whatever has been saved or imported,
+   * and whatever has actually been typed across every game. The second is
+   * free and keeps the list honest - the words really in use float up.
+   */
+  App.terms = function (field) {
+    var counts = {};
+    var order = [];
+    function add(v, weight) {
+      var t = String(v == null ? '' : v).trim();
+      if (!t) return;
+      var key = t.toLowerCase();
+      if (!counts[key]) { counts[key] = { text: t, n: 0 }; order.push(key); }
+      counts[key].n += weight;
+    }
+    (App.db.terms[field] || []).forEach(function (t) { add(t, 0.5); });
+    App.db.games.forEach(function (g) {
+      (g.plays || []).forEach(function (p) { add(p[field], 1); });
+    });
+    return order.map(function (k) { return counts[k]; })
+      .sort(function (a, b) {
+        if (b.n !== a.n) return b.n - a.n;
+        return a.text.localeCompare(b.text);
+      })
+      .map(function (e) { return e.text; });
+  };
+
+  App.addTerms = function (field, list) {
+    var have = {};
+    (App.db.terms[field] || []).forEach(function (t) { have[t.toLowerCase()] = true; });
+    var added = 0;
+    (list || []).forEach(function (raw) {
+      var t = String(raw).trim();
+      if (!t || t.length > 60 || have[t.toLowerCase()]) return;
+      have[t.toLowerCase()] = true;
+      App.db.terms[field].push(t);
+      added += 1;
+    });
+    App.commit();
+    return added;
+  };
+
+  App.clearTerms = function (field) {
+    App.db.terms[field] = [];
+    App.commit();
+  };
+
+  /*
+   * Pulls terms out of pasted text or a spreadsheet saved as CSV. Splits on
+   * newlines and commas, drops anything that is only a number, and keeps the
+   * rest - a column of formations pasted straight out of a sheet just works.
+   */
+  App.importTerms = function (field, text) {
+    var parts = String(text || '').split(/[\r\n,;\t]+/);
+    var clean = parts.map(function (t) {
+      return t.replace(/^["']+|["']+$/g, '').trim();
+    }).filter(function (t) {
+      return t && !/^-?\d+(\.\d+)?$/.test(t) && t.length <= 60;
+    });
+    return App.addTerms(field, clean);
   };
 
   App.deleteGame = function (id) {
@@ -2628,7 +3115,8 @@ body.mode-touch .touchbar {
   App.seasonSummary = function () {
     var box = { passing: {}, rushing: {}, receiving: {} };
     var games = [];
-    var totals = { plays: 0, yards: 0, firstDowns: 0, drives: 0, touchdowns: 0, points: 0 };
+    var totals = { plays: 0, yards: 0, firstDowns: 0, drives: 0, touchdowns: 0, points: 0, opponentPoints: 0 };
+    var season = {};
     App.db.games.forEach(function (g) {
       var c = E.computeGame(g);
       mergeInto(box.passing, c.box.passing, 'passing');
@@ -2640,9 +3128,26 @@ body.mode-touch .touchbar {
       totals.drives += c.totals.drives;
       totals.touchdowns += c.totals.touchdowns;
       totals.points += c.score;
+      totals.opponentPoints = (totals.opponentPoints || 0) + c.opponentScore;
+      ['thirdDownAtt', 'thirdDownConv', 'fourthDownAtt', 'fourthDownConv', 'explosiveRuns',
+       'explosivePasses', 'redZoneTrips', 'redZoneTds', 'turnovers', 'turnoverOnDowns',
+       'scoringDrives', 'threeAndOuts'].forEach(function (k) {
+        season[k] = (season[k] || 0) + c.report[k];
+      });
       games.push({ game: g, computed: c });
     });
-    return { box: box, totals: totals, games: games };
+    season.points = totals.points;
+    season.plays = totals.plays;
+    season.yards = totals.yards;
+    season.firstDowns = totals.firstDowns;
+    season.drives = totals.drives;
+    season.explosives = (season.explosiveRuns || 0) + (season.explosivePasses || 0);
+    season.yardsPerPlay = totals.plays ? E.round1(totals.yards / totals.plays) : 0;
+    season.thirdDownPct = season.thirdDownAtt
+      ? E.round1(100 * season.thirdDownConv / season.thirdDownAtt) : null;
+    season.redZoneTdPct = season.redZoneTrips
+      ? E.round1(100 * season.redZoneTds / season.redZoneTrips) : null;
+    return { box: box, totals: totals, games: games, report: season };
   };
 
   /* ---------------- import / export ---------------- */
@@ -2741,6 +3246,13 @@ body.mode-touch .touchbar {
       formation.wrap, motion.wrap, playCall.wrap
     ]));
 
+    // Type-ahead from the season's own vocabulary.
+    if (opts.suggest) {
+      [['formation', formation], ['motion', motion], ['playCall', playCall]].forEach(function (pair) {
+        D.autocomplete(pair[1].input, function () { return opts.suggest(pair[0]); });
+      });
+    }
+
     /* --- snap spot: the only field position ever typed --- */
     var spot = D.field({
       label: 'Snap spot', class: 'spot-field grow',
@@ -2821,13 +3333,24 @@ body.mode-touch .touchbar {
     var penCredited = D.field({
       label: 'Yards credited to the play', class: 'num-field', inputmode: 'text', placeholder: '0'
     });
+    var penEnded = D.field({
+      label: 'Ball ended at (optional)', inputmode: 'text', autocapitalize: 'off',
+      placeholder: 'only if not walked off from the snap'
+    });
     var penRow = D.el('div', { class: 'field' }, [
       D.el('span', { class: 'lbl', text: 'Penalty' }),
       penOnSeg.root,
-      D.el('div', { class: 'row wrap gap-top' }, [penYards.wrap, penAuto.wrap, penBeyond.wrap])
+      D.el('div', { class: 'row wrap gap-top' }, [penYards.wrap, penAuto.wrap, penBeyond.wrap]),
+      D.el('div', {
+        class: 'pf-note pen-hint',
+        text: 'Beyond the LOS = the play still counted and the flag went on top. ' +
+              'Did the ref walk it off from the snap, or from where the play ended? ' +
+              'Snap \u2192 leave it off.'
+      })
     ]);
     context.appendChild(penRow);
     context.appendChild(penCredited.wrap);
+    context.appendChild(penEnded.wrap);
 
     /* --- player numbers --- */
     var carrier = D.field({ label: 'Ball carrier #', class: 'num-field', inputmode: 'numeric', placeholder: '22' });
@@ -2926,6 +3449,7 @@ body.mode-touch .touchbar {
         (t === 'penalty' && penBeyond.input.checked));
       D.show(penRow, t === 'penalty');
       D.show(penCredited.wrap, t === 'penalty' && penBeyond.input.checked);
+      D.show(penEnded.wrap, t === 'penalty');
       D.show(outcomeRow, eff === 'pass' && !isInt);
 
       var wipedPenalty = t === 'penalty' && !penBeyond.input.checked;
@@ -2998,6 +3522,7 @@ body.mode-touch .touchbar {
       penAuto.input.checked = !!(pen && pen.autoFirst);
       penBeyond.input.checked = !!(pen && pen.beyondLOS);
       penCredited.input.value = pen && pen.beyondLOS ? pen.creditedYards : '';
+      penEnded.input.value = pen && pen.endedAt != null ? E.formatSpot(pen.endedAt) : '';
       if (pen && pen.beyondLOS && pen.underlyingType !== 'none') underSeg.set(pen.underlyingType);
 
       var ov = p.overrides || {};
@@ -3049,6 +3574,13 @@ body.mode-touch .touchbar {
         var yards = numOrNull(penYards.input);
         if (yards == null) return { ok: false, error: 'Penalty yardage?', focus: penYards.input };
         var beyond = penBeyond.input.checked;
+        var endedAt = null;
+        var endedText = String(penEnded.input.value || '').trim();
+        if (endedText) {
+          var spotted = E.parseSpot(endedText);
+          if (!spotted.ok) return { ok: false, error: spotted.error, focus: penEnded.input };
+          endedAt = spotted.value;
+        }
         attrs.playType = 'penalty';
         attrs.penalty = {
           on: penOnSeg.get(),
@@ -3056,7 +3588,8 @@ body.mode-touch .touchbar {
           autoFirst: penAuto.input.checked,
           beyondLOS: beyond,
           underlyingType: beyond ? underSeg.get() : 'none',
-          creditedYards: beyond ? (numOrNull(penCredited.input) || 0) : 0
+          creditedYards: beyond ? (numOrNull(penCredited.input) || 0) : 0,
+          endedAt: endedAt
         };
       } else if (isInt) {
         attrs.playType = 'pass';
@@ -3102,6 +3635,7 @@ body.mode-touch .touchbar {
       if (!o.keepTwoPoint) twoPt.input.checked = false;
       penYards.input.value = '';
       penCredited.input.value = '';
+      penEnded.input.value = '';
       penAuto.input.checked = false;
       penBeyond.input.checked = false;
       // Every sub-choice goes back to its default too. A "pass incomplete"
@@ -3200,6 +3734,7 @@ body.mode-touch .touchbar {
       mode: 'entry',
       onSubmit: onLogPlay,
       shouldAutoFocus: function () { return !isTouch(); },
+      suggest: function (field) { return App.terms(field); },
       onLockedClick: function () {
         var spot = qs('#drive-spot');
         if (spot) { spot.focus(); spot.scrollIntoView({ block: 'center' }); }
@@ -3212,7 +3747,8 @@ body.mode-touch .touchbar {
     editForm = FB.PlayForm.create({
       mode: 'edit',
       onSubmit: onSaveEdit,
-      onDelete: onDeleteEdit
+      onDelete: onDeleteEdit,
+      suggest: function (field) { return App.terms(field); }
     });
     qs('#edit-mount').appendChild(editForm.root);
 
@@ -3342,6 +3878,10 @@ body.mode-touch .touchbar {
         el('div', { class: 'status-lbl', text: g.finishedAt ? 'Final — us' : 'So far — us' }),
         el('div', { class: 'final-num', text: String(c.score) })
       ]),
+      el('div', {}, [
+        el('div', { class: 'status-lbl', text: 'Them' }),
+        el('div', { class: 'final-num', text: String(c.opponentScore) })
+      ]),
       el('div', { class: 'final-meta' }, [
         el('div', {}, [el('b', { text: String(c.totals.plays) }), 'plays']),
         el('div', {}, [el('b', { text: E.num(c.totals.yards) }), 'yards']),
@@ -3378,7 +3918,9 @@ body.mode-touch .touchbar {
       ])
     ]));
 
+    host.appendChild(goalsBlock('Against your goals', App.gradeGoals(c.report)));
     host.appendChild(boxTables(c.box));
+    host.appendChild(situationTable('Situational', c.report));
     host.appendChild(teamTable('Team', c.totals, c.score));
 
     host.appendChild(el('div', { class: 'row wrap gap-top' }, [
@@ -3435,6 +3977,21 @@ body.mode-touch .touchbar {
     qs('#btn-export').addEventListener('click', function () { qs('#export-dialog').showModal(); });
     qs('#btn-import').addEventListener('click', function () { qs('#import-dialog').showModal(); });
     qs('#btn-help').addEventListener('click', openHelp);
+    qs('#btn-scoreboard').addEventListener('click', openScoreboard);
+    qs('#goals-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      App.setGoals({
+        thirdDownPct: qs('#goal-third').value,
+        yardsPerPlay: qs('#goal-ypp').value,
+        explosives: qs('#goal-explosives').value,
+        turnovers: qs('#goal-turnovers').value,
+        points: qs('#goal-points').value,
+        explosiveRun: qs('#goal-exrun').value,
+        explosivePass: qs('#goal-expass').value
+      });
+      qs('#goals-dialog').close();
+      notice('info', 'Goals saved.');
+    });
 
     global.addEventListener('resize', function () {
       if (qs('#mode-select').value === 'auto') applyMode('auto');
@@ -3726,6 +4283,139 @@ body.mode-touch .touchbar {
     qs('#drive-edit-spot').select();
   }
 
+  /*
+   * Everything the offence cannot score by itself: defensive and special
+   * teams points, and the other side's whole scoreboard.
+   */
+  function openScoreboard() {
+    var g = App.activeGame();
+    var c = App.computed;
+    var host = qs('#score-body');
+    D.clear(host);
+
+    host.appendChild(el('div', { class: 'final-score' }, [
+      el('div', {}, [el('div', { class: 'status-lbl', text: 'Us' }),
+        el('div', { class: 'final-num', text: String(c.score) })]),
+      el('div', {}, [el('div', { class: 'status-lbl', text: 'Them' }),
+        el('div', { class: 'final-num', text: String(c.opponentScore) })])
+    ]));
+
+    host.appendChild(el('p', {
+      class: 'hint',
+      text: 'Our offence scores itself off the chart (' + c.offenseScore +
+            ' from touchdowns, tries and field goals). Add anything else here.'
+    }));
+
+    function add(team, kind, points, label) {
+      return el('button', {
+        type: 'button', class: 'btn', dataset: { scoreTeam: team, scoreKind: kind },
+        onclick: function () { App.addScore({ team: team, kind: kind, points: points, note: label }); openScoreboard(); }
+      }, [label + ' +' + points]);
+    }
+
+    host.appendChild(el('h2', { text: 'Add for us' }));
+    host.appendChild(el('div', { class: 'row wrap' }, [
+      add('us', 'def-td', 6, 'Defensive TD'),
+      add('us', 'st-td', 6, 'Return TD'),
+      add('us', 'safety', 2, 'Safety'),
+      add('us', 'pat', 1, 'PAT'),
+      add('us', 'two', 2, '2-pt'),
+      add('us', 'fg', 3, 'Field goal')
+    ]));
+
+    host.appendChild(el('h2', { text: 'Add for them', style: 'margin-top:1rem' }));
+    host.appendChild(el('div', { class: 'row wrap' }, [
+      add('them', 'td', 7, 'TD + PAT'),
+      add('them', 'td', 6, 'TD only'),
+      add('them', 'fg', 3, 'Field goal'),
+      add('them', 'safety', 2, 'Safety'),
+      add('them', 'two', 8, 'TD + 2-pt')
+    ]));
+
+    var entries = (g.scoring || []);
+    if (entries.length) {
+      var list = el('div', { class: 'score-list' });
+      entries.slice().reverse().forEach(function (e) {
+        list.appendChild(el('div', { class: 'score-entry' }, [
+          el('span', { class: 'pts', text: '+' + e.points }),
+          el('span', { class: 'who', text: e.team === 'us' ? 'US' : 'THEM' }),
+          el('span', { class: 'grow', text: e.note || e.kind }),
+          el('button', {
+            type: 'button', class: 'btn btn-sm',
+            onclick: function () { App.removeScore(e.id); openScoreboard(); }
+          }, ['Remove'])
+        ]));
+      });
+      host.appendChild(el('h2', { text: 'Entered by hand', style: 'margin-top:1rem' }));
+      host.appendChild(list);
+    }
+
+    var dlg = qs('#score-dialog');
+    if (!dlg.open) dlg.showModal();
+  }
+
+  function openGoals() {
+    var g = App.db.goals;
+    qs('#goal-third').value = g.thirdDownPct;
+    qs('#goal-ypp').value = g.yardsPerPlay;
+    qs('#goal-explosives').value = g.explosives;
+    qs('#goal-turnovers').value = g.turnovers;
+    qs('#goal-points').value = g.points;
+    qs('#goal-exrun').value = g.explosiveRun;
+    qs('#goal-expass').value = g.explosivePass;
+    qs('#goals-dialog').showModal();
+  }
+
+  /* ---------------- the term library ---------------- */
+
+  function openTerms() {
+    var host = qs('#terms-body');
+    D.clear(host);
+    host.appendChild(el('p', {
+      class: 'hint',
+      text: 'Suggestions come from everything you have already charted, plus anything you add ' +
+            'here. Paste a column straight out of a spreadsheet — one per line, or comma separated.'
+    }));
+
+    [['formation', 'Formations'], ['motion', 'Motions'], ['playCall', 'Play calls']].forEach(function (pair) {
+      var field = pair[0];
+      var all = App.terms(field);
+      var saved = App.db.terms[field] || [];
+      var box = el('textarea', { rows: '3', placeholder: 'Trips Rt\nDoubles\nBunch Lt' });
+      var block = el('div', { class: 'term-block' }, [
+        el('h2', { text: pair[1] + ' — ' + all.length + ' in use, ' + saved.length + ' saved' }),
+        el('div', { class: 'term-list' }, all.slice(0, 24).map(function (t) {
+          return el('span', { class: 'term-chip', text: t });
+        })),
+        box,
+        el('div', { class: 'row wrap gap-top' }, [
+          el('button', {
+            type: 'button', class: 'btn btn-primary',
+            onclick: function () {
+              var n = App.importTerms(field, box.value);
+              notice('info', n ? 'Added ' + n + ' ' + pair[1].toLowerCase() + '.' : 'Nothing new to add.');
+              openTerms();
+            }
+          }, ['Add these']),
+          saved.length ? el('button', {
+            type: 'button', class: 'btn btn-sm',
+            onclick: function () {
+              if (global.confirm('Clear the ' + saved.length + ' saved ' + pair[1].toLowerCase() + '? ' +
+                  'Terms already used on a play will still be suggested.')) {
+                App.clearTerms(field);
+                openTerms();
+              }
+            }
+          }, ['Clear saved']) : null
+        ])
+      ]);
+      host.appendChild(block);
+    });
+
+    var dlg = qs('#terms-dialog');
+    if (!dlg.open) dlg.showModal();
+  }
+
   function openGameDialog(mode) {
     ui.gameDialogMode = mode;
     var g = App.activeGame();
@@ -3768,6 +4458,7 @@ body.mode-touch .touchbar {
       else { App.selectGame(ev.target.value); ui.driveView = null; }
     };
     qs('#our-score').textContent = App.computed.score;
+    qs('#their-score').textContent = App.computed.opponentScore;
   }
 
   function renderBanners(c) {
@@ -3869,7 +4560,72 @@ body.mode-touch .touchbar {
     if (ui.tab === 'drive') renderDriveTab(game, c);
     else if (ui.tab === 'plays') renderPlaysTab(game, c);
     else if (ui.tab === 'box') renderBoxTab(game, c);
+    else if (ui.tab === 'report') renderReportTab(game, c);
     else renderGamesTab();
+  }
+
+  function fmtPct(v) { return v == null ? '—' : E.num(v) + '%'; }
+
+  function goalsBlock(title, grades) {
+    var rows = grades.map(function (g) {
+      var cls = g.ok == null ? 'goal-none' : (g.ok ? 'goal-hit' : 'goal-miss');
+      return el('div', { class: 'goal-row' }, [
+        el('div', { text: g.label }),
+        el('div', { class: 'goal-val ' + cls, text: g.value == null ? '—' : E.num(g.value) + g.suffix }),
+        el('div', {
+          class: 'goal-target',
+          text: (g.dir === 'down' ? '≤ ' : '≥ ') + E.num(g.target) + g.suffix +
+                (g.ok == null ? '' : (g.ok ? '  ✓' : '  ✗'))
+        })
+      ]);
+    });
+    return el('div', { class: 'statblock' }, [
+      el('h2', { text: title }),
+      el('div', { class: 'goals' }, rows)
+    ]);
+  }
+
+  function situationTable(title, r) {
+    var rows = [
+      ['3rd down', r.thirdDownConv + ' / ' + r.thirdDownAtt + '   ' + fmtPct(r.thirdDownPct)],
+      ['4th down', r.fourthDownConv + ' / ' + r.fourthDownAtt + '   ' + fmtPct(r.fourthDownPct)],
+      ['Explosive plays', r.explosives + '  (' + r.explosiveRuns + ' run, ' + r.explosivePasses + ' pass)'],
+      ['Red zone trips', String(r.redZoneTrips)],
+      ['Red zone touchdowns', r.redZoneTds + '   ' + fmtPct(r.redZoneTdPct)],
+      ['Scoring drives', r.scoringDrives + ' of ' + r.drives],
+      ['Three and outs', String(r.threeAndOuts)],
+      ['Turnovers lost', String(r.turnovers)],
+      ['Turnovers on downs', String(r.turnoverOnDowns)],
+      ['First downs', String(r.firstDowns)],
+      ['Yards per play', r.plays ? E.num(r.yardsPerPlay) : '—']
+    ];
+    return el('div', { class: 'statblock' }, [
+      el('h2', { text: title }),
+      el('div', { class: 'table-wrap' }, [
+        el('table', { class: 'stats' }, [
+          el('tbody', {}, rows.map(function (row) {
+            return el('tr', {}, [el('td', { text: row[0] }), el('td', { text: row[1] })]);
+          }))
+        ])
+      ])
+    ]);
+  }
+
+  function renderReportTab(game, c) {
+    var host = qs('#tab-report');
+    D.clear(host);
+    host.appendChild(el('div', { class: 'row wrap', style: 'margin-bottom:.8rem' }, [
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: openGoals }, ['Edit season goals']),
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: openScoreboard }, ['Scoreboard'])
+    ]));
+    host.appendChild(goalsBlock('This game vs goals', App.gradeGoals(c.report)));
+    host.appendChild(situationTable('Situational — this game', c.report));
+
+    var season = App.seasonSummary();
+    if (App.db.games.length > 1) {
+      host.appendChild(goalsBlock('Season vs goals', App.gradeGoals(season.report)));
+      host.appendChild(situationTable('Situational — season', season.report));
+    }
   }
 
   /* ---------------- play rows ---------------- */
@@ -3961,12 +4717,13 @@ body.mode-touch .touchbar {
     return ({
       td: 'Touchdown', downs: 'Turnover on downs', fumble: 'Fumble lost',
       interception: 'Interception', safety: 'Safety', punt: 'Punt',
-      'missed-fg': 'Missed FG', half: 'End of half', game: 'End of game'
+      'fg-good': 'Field goal', 'missed-fg': 'Missed FG',
+      half: 'End of half', game: 'End of game'
     })[reason] || reason;
   }
 
   function endClass(reason) {
-    if (reason === 'td') return 'good';
+    if (reason === 'td' || reason === 'fg-good') return 'good';
     if (reason === 'fumble' || reason === 'interception' || reason === 'downs' || reason === 'safety') return 'bad';
     return '';
   }
@@ -4170,6 +4927,8 @@ body.mode-touch .touchbar {
     host.appendChild(el('div', { class: 'row wrap', style: 'margin-bottom:.8rem' }, [
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { openGameDialog('new'); } }, ['New game']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: openSummary }, ['Game summary']),
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: openTerms }, ['Term library']),
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: openGoals }, ['Season goals']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { openGameDialog('edit'); } }, ['Edit this game']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { runExport(App.exportData()); } }, ['Export all games'])
     ]));
@@ -4254,7 +5013,11 @@ body.mode-touch .touchbar {
       '<li><b>Scramble</b> counts as a rush for the QB, never a pass attempt.</li>',
       '<li><b>Penalty</b> repeats the down unless it is an automatic first down. Half the distance to the goal is ',
       'enforced for you. By default the play is wiped and nobody is credited; tick <b>Beyond the LOS</b> to chart ',
-      'the real play underneath and apply the flag on top.</li>',
+      'the real play underneath and apply the flag on top. Ask: did the ref walk it off from the snap, or from ',
+      'where the play ended? Snap &rarr; leave it off.</li>',
+      '<li>When a flag is <b>not</b> walked off from the snap &mdash; holding downfield on a run, enforced from ',
+      'the spot of the foul &mdash; type the yard line into <b>Ball ended at</b>, and the chart follows the ball ',
+      'instead of the arithmetic.</li>',
       '<li><b>Turnover on downs</b> is never something you pick &mdash; a 4th-down play that comes up short ends ',
       'the drive by itself once it resolves.</li>',
       '<li>A <b>2-point try</b> is charted like any snap and never touches the box score.</li>',
@@ -4264,6 +5027,22 @@ body.mode-touch .touchbar {
       '<p>Tap any play in the list to edit every field on it. Everything after it in that drive recomputes ',
       'immediately. A drive is a clean boundary &mdash; a fix never leaks into the next one. If you type a down, ',
       'distance or yardage by hand it is kept, and the automatic logic picks back up on the next play.</p>',
+
+      '<h3>Scoreboard, report and goals</h3>',
+      '<ul>',
+      '<li>The offence scores itself off the chart. Click the <b>scoreboard</b> in the top bar to add anything ',
+      'else &mdash; a defensive or return touchdown, a safety, and everything the other side scores.</li>',
+      '<li>A made field goal is a drive action: <b>FG good</b>, worth three.</li>',
+      '<li><b>Report</b> grades the game against your season goals &mdash; 3rd down, yards per play, explosive ',
+      'plays, turnovers, points &mdash; with the situational numbers underneath. Edit the targets, and what ',
+      'counts as explosive, from that tab.</li>',
+      '</ul>',
+
+      '<h3>Formation, motion and play call</h3>',
+      '<p>These suggest as you type, from everything you have already charted. Arrow keys move through the ',
+      'list and <kbd>Enter</kbd> takes the highlighted one &mdash; <kbd>Enter</kbd> with nothing highlighted ',
+      'still logs the play, so the list never costs you a snap. Add your own, or paste a column out of a ',
+      'spreadsheet, from <b>Term library</b> in the Games tab.</p>',
 
       '<h3>Your data</h3>',
       '<p>Everything lives in this browser on this machine, with no network of any kind. That means it does ',
