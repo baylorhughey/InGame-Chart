@@ -224,6 +224,29 @@ made field goal (**FG good**, a drive action). Everything else is entered by han
 the scoreboard in the top bar for defensive and return touchdowns, safeties, and the whole
 opponent side. Manual entries are listed there and can be removed.
 
+## Stats for the media
+
+The box score written out in plain prose, ready to paste into an email or a text from a
+press box with no internet:
+
+```
+FINAL: Sipsey Valley 28, Central 14
+2026-09-18 (at Central)
+
+SIPSEY VALLEY
+Passing: Jake Smith (12) 12-18-0, 165, 2 TD
+Rushing: Marcus Jones (22) 18-102, 1 TD; Jake Smith (12) 6-24
+Receiving: Tyler Davis (80) 5-78, 1 TD
+Team: 62 plays, 401 yards, 18 first downs, 7-13 on third down, no turnovers
+```
+
+**Box score → Stats for the media**, or from the end-of-game wrap-up. It copies to the
+clipboard, and it needs no file, no download and no network.
+
+Names come from **Roster** — jersey number to name, typed once a season. Numbers appear
+there automatically as soon as they are charted. Anyone still unnamed prints as `#22`, and
+the app tells you which numbers are missing rather than quietly leaving them that way.
+
 ## Tendencies
 
 What the defence sees. Every called play is bucketed **by the call, not the outcome** — a

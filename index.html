@@ -781,6 +781,23 @@ tr.tend-thin td { opacity: 0.55; }
 .score-entry .who { font-weight: 700; }
 .score-entry .grow { color: var(--ink-3); font-size: 0.86rem; }
 
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.5rem;
+  margin: 0.7rem 0;
+}
+.roster-row { display: flex; align-items: center; gap: 0.4rem; }
+.roster-row .num {
+  font-family: var(--display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  min-width: 2.2rem;
+  text-align: right;
+  color: var(--ink-2);
+}
+.roster-row input { min-height: 34px; }
+
 .term-block { margin-bottom: 1.2rem; }
 .term-list { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0; }
 .term-chip {
@@ -1213,6 +1230,14 @@ body.mode-touch .touchbar {
       <button type="button" class="btn btn-tall" id="confirm-no">Cancel</button>
     </div>
   </div>
+</dialog>
+
+<dialog id="roster-dialog" class="dlg dlg-wide">
+  <form method="dialog" class="dlg-head">
+    <h2>Roster</h2>
+    <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
+  </form>
+  <div class="dlg-body" id="roster-body"></div>
 </dialog>
 
 <dialog id="team-dialog" class="dlg">
@@ -1823,10 +1848,24 @@ body.mode-touch .touchbar {
 
   function defaultTeam() { return { name: 'Sipsey Valley', short: 'SV' }; }
 
+  // Jersey number -> name. Kept for the season, not the game: numbers do not
+  // change week to week, and nobody wants to retype a roster every Friday.
+  function normalizeRoster(raw) {
+    var out = {};
+    if (!raw || typeof raw !== 'object') return out;
+    Object.keys(raw).forEach(function (k) {
+      var num = String(k).trim();
+      var name = String(raw[k] == null ? '' : raw[k]).trim();
+      if (num && name) out[num] = name;
+    });
+    return out;
+  }
+
   function emptyDb() {
     return {
       version: SCHEMA_VERSION, activeGameId: null, games: [],
       team: defaultTeam(),
+      roster: {},
       goals: defaultGoals(),
       terms: seedTerms({ formation: [], motion: [], playCall: [] }),
       termsSeeded: true
@@ -1846,6 +1885,7 @@ body.mode-touch .touchbar {
       if (isFinite(v)) goals[k] = v;
     });
     db.goals = goals;
+    db.roster = normalizeRoster(raw.roster);
     db.team = defaultTeam();
     if (raw.team) {
       if (raw.team.name) db.team.name = String(raw.team.name);
@@ -1894,6 +1934,7 @@ body.mode-touch .touchbar {
     emptyDb: emptyDb,
     defaultGoals: defaultGoals,
     defaultTeam: defaultTeam,
+    normalizeRoster: normalizeRoster,
     SEED_TERMS: SEED_TERMS,
     normalizeDb: normalizeDb
   };
@@ -3201,6 +3242,94 @@ body.mode-touch .touchbar {
     App.commit();
   };
 
+  App.setRoster = function (map) {
+    App.db.roster = M.normalizeRoster(map);
+    App.commit();
+  };
+
+  // "12" -> "12 Smith", or just "12" when we do not know him yet.
+  App.playerLabel = function (num) {
+    var name = App.db.roster[String(num)];
+    return name ? num + ' ' + name : '#' + num;
+  };
+
+  // Every number that has actually touched the ball, across the season.
+  App.numbersUsed = function () {
+    var seen = {};
+    App.db.games.forEach(function (g) {
+      (g.plays || []).forEach(function (p) {
+        [p.carrier, p.qb, p.receiver].forEach(function (n) {
+          var t = String(n || '').trim();
+          if (t) seen[t] = true;
+        });
+      });
+    });
+    return Object.keys(seen).sort(function (a, b) {
+      var x = parseInt(a, 10), y = parseInt(b, 10);
+      if (isNaN(x) || isNaN(y)) return a.localeCompare(b);
+      return x - y;
+    });
+  };
+
+  /*
+   * The box score as prose, ready to paste into an email from a press box
+   * with no internet. Names where we have them, numbers where we do not.
+   */
+  App.mediaSheet = function () {
+    var g = App.activeGame();
+    var c = App.computed;
+    var box = c.box;
+    var us = App.db.team.name;
+    var them = g.opponent || 'Opponent';
+    var L = [];
+
+    L.push('FINAL: ' + us + ' ' + c.score + ', ' + them + ' ' + c.opponentScore);
+    if (g.date) L.push(g.date + (g.venue === 'away' ? ' (at ' + them + ')' : g.venue === 'neutral' ? ' (neutral site)' : ' (home)'));
+    L.push('');
+    L.push(us.toUpperCase());
+
+    function who(n) {
+      var name = App.db.roster[String(n)];
+      return name ? name + ' (' + n + ')' : '#' + n;
+    }
+    function order(map, key) {
+      return Object.keys(map).sort(function (a, b) { return map[b][key] - map[a][key]; });
+    }
+
+    var pass = order(box.passing, 'yards').filter(function (n) { return box.passing[n].att; })
+      .map(function (n) {
+        var s = box.passing[n];
+        var line = who(n) + ' ' + s.comp + '-' + s.att + '-' + s.int + ', ' + E.num(s.yards);
+        if (s.td) line += ', ' + s.td + ' TD';
+        return line;
+      });
+    var rush = order(box.rushing, 'yards').filter(function (n) { return box.rushing[n].carries; })
+      .map(function (n) {
+        var s = box.rushing[n];
+        var line = who(n) + ' ' + s.carries + '-' + E.num(s.yards);
+        if (s.td) line += ', ' + s.td + ' TD';
+        return line;
+      });
+    var rec = order(box.receiving, 'yards').filter(function (n) { return box.receiving[n].rec; })
+      .map(function (n) {
+        var s = box.receiving[n];
+        var line = who(n) + ' ' + s.rec + '-' + E.num(s.yards);
+        if (s.td) line += ', ' + s.td + ' TD';
+        return line;
+      });
+
+    if (pass.length) L.push('Passing: ' + pass.join('; '));
+    if (rush.length) L.push('Rushing: ' + rush.join('; '));
+    if (rec.length) L.push('Receiving: ' + rec.join('; '));
+
+    var t = c.totals, r = c.report;
+    L.push('Team: ' + t.plays + ' plays, ' + E.num(t.yards) + ' yards, ' +
+      t.firstDowns + ' first downs' +
+      (r.thirdDownAtt ? ', ' + r.thirdDownConv + '-' + r.thirdDownAtt + ' on third down' : '') +
+      (r.turnovers ? ', ' + r.turnovers + ' turnover' + (r.turnovers > 1 ? 's' : '') : ', no turnovers'));
+    return L.join('\n');
+  };
+
   App.setGoals = function (patch) {
     Object.keys(patch || {}).forEach(function (k) {
       var v = Number(patch[k]);
@@ -4358,6 +4487,21 @@ body.mode-touch .touchbar {
       ])
     ]));
 
+    host.appendChild(el('div', { class: 'save-now' }, [
+      el('h2', { text: 'Send it out' }),
+      el('p', { class: 'hint', text: 'The box score written out, ready to paste into an email or a text.' }),
+      el('div', { class: 'row wrap' }, [
+        el('button', {
+          type: 'button', class: 'btn btn-primary btn-tall',
+          onclick: function () { qs('#summary-dialog').close(); openMediaSheet(); }
+        }, ['Stats for the media']),
+        el('button', {
+          type: 'button', class: 'btn',
+          onclick: function () { qs('#summary-dialog').close(); openRoster(); }
+        }, ['Roster'])
+      ])
+    ]));
+
     host.appendChild(goalsBlock('Against your goals', App.gradeGoals(c.report)));
     host.appendChild(boxTables(c.box));
     host.appendChild(situationTable('Situational', c.report));
@@ -4735,6 +4879,72 @@ body.mode-touch .touchbar {
     qs('#confirm-no').onclick = function () { dlg.close(); };
     dlg.showModal();
     qs('#confirm-no').focus();
+  }
+
+  /*
+   * Numbers come off the chart automatically; names have to be typed once a
+   * season. Without them the box score is unreadable to anyone but you.
+   */
+  function openRoster() {
+    var host = qs('#roster-body');
+    D.clear(host);
+    var used = App.numbersUsed();
+    var known = Object.keys(App.db.roster).filter(function (n) { return used.indexOf(n) < 0; });
+    var nums = used.concat(known.sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); }));
+
+    host.appendChild(el('p', {
+      class: 'hint',
+      text: nums.length
+        ? 'Every number that has touched the ball this season. Names are used in the box score and on the stat sheet you send out.'
+        : 'Numbers appear here as soon as they are charted. You can also add them ahead of time below.'
+    }));
+
+    var inputs = {};
+    var grid = el('div', { class: 'roster-grid' });
+    function addRow(num, name) {
+      var numIn = el('input', { type: 'text', value: num || '', inputmode: 'numeric',
+        class: 'num-in', placeholder: '#', style: 'max-width:3.4rem' });
+      var nameIn = el('input', { type: 'text', value: name || '', placeholder: 'Name',
+        autocomplete: 'off' });
+      var key = 'r' + Object.keys(inputs).length;
+      inputs[key] = { num: numIn, name: nameIn };
+      grid.appendChild(el('div', { class: 'roster-row' }, [numIn, nameIn]));
+    }
+    nums.forEach(function (n) { addRow(n, App.db.roster[n] || ''); });
+    for (var i = 0; i < 6; i++) addRow('', '');
+
+    var form = el('form', {}, [grid, el('div', { class: 'row wrap gap-top' }, [
+      el('button', { type: 'submit', class: 'btn btn-primary btn-tall' }, ['Save roster']),
+      el('button', {
+        type: 'button', class: 'btn btn-sm',
+        onclick: function () { for (var i = 0; i < 8; i++) addRow('', ''); }
+      }, ['More rows'])
+    ])]);
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var map = {};
+      Object.keys(inputs).forEach(function (k) {
+        var n = inputs[k].num.value.trim();
+        var nm = inputs[k].name.value.trim();
+        if (n && nm) map[n] = nm;
+      });
+      App.setRoster(map);
+      qs('#roster-dialog').close();
+      notice('info', Object.keys(map).length + ' players saved.');
+    });
+    host.appendChild(form);
+    qs('#roster-dialog').showModal();
+  }
+
+  /* The stat sheet, as text, ready to paste into an email. */
+  function openMediaSheet() {
+    var missing = App.numbersUsed().filter(function (n) { return !App.db.roster[n]; });
+    openCopy(App.mediaSheet());
+    qs('#copy-dialog').querySelector('h2').textContent = 'Stats for the media';
+    if (missing.length) {
+      notice('warn', missing.length + ' number(s) have no name yet: ' + missing.join(', ') +
+        ' — add them in Roster and copy again.');
+    }
   }
 
   function openTeam() {
@@ -5434,7 +5644,7 @@ body.mode-touch .touchbar {
     var totalsRow = {};
     nums.forEach(function (n) {
       var s = data[n];
-      var cells = [el('td', { text: '#' + n })];
+      var cells = [el('td', { text: App.playerLabel(n) })];
       keys.forEach(function (k) {
         var v = typeof k === 'function' ? k(s) : s[k];
         if (typeof k === 'string') totalsRow[k] = E.round1((totalsRow[k] || 0) + s[k]);
@@ -5507,6 +5717,9 @@ body.mode-touch .touchbar {
     var host = qs('#tab-box');
     D.clear(host);
     host.appendChild(el('div', { class: 'row wrap', style: 'margin-bottom:.8rem' }, [
+      el('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: openMediaSheet },
+        ['Stats for the media']),
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: openRoster }, ['Roster']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { runExport(App.exportBoxCsv()); } },
         ['Export box score CSV']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { runExport(App.exportPlaysCsv()); } },
@@ -5528,6 +5741,7 @@ body.mode-touch .touchbar {
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { openGameDialog('new'); } }, ['New game']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: openSummary }, ['Game summary']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: openTeam }, ['Our team']),
+      el('button', { type: 'button', class: 'btn btn-sm', onclick: openRoster }, ['Roster']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: openTerms }, ['Term library']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: openGoals }, ['Season goals']),
       el('button', { type: 'button', class: 'btn btn-sm', onclick: function () { openGameDialog('edit'); } }, ['Edit this game']),
