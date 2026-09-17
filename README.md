@@ -234,7 +234,10 @@ asking about. A 40-yard touchdown run passes through the red zone without testin
 
 ## Formation, motion and play call
 
-These suggest as you type, drawn from **everything you have already charted**, most-used
+**The library ships loaded** with the team's own vocabulary, read off their charts: 22
+formations, 5 motions and 55 play calls, ready from the first snap.
+
+Beyond that, suggestions are drawn from **everything you have already charted**, most-used
 first. Arrow keys move through the list, `Enter` takes the highlighted one — and `Enter`
 with nothing highlighted still logs the play, so the list can never cost you a snap.
 

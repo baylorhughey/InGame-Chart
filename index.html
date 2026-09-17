@@ -1176,7 +1176,10 @@ body.mode-touch .touchbar {
    * logs the play - the suggestion list must never cost a snap.
    */
   function autocomplete(input, getItems) {
-    var list = el('div', { class: 'ac', hidden: true, role: 'listbox' });
+    // tabindex -1 keeps it out of the tab order: the list scrolls, and a
+    // scrollable box is focusable by default, which would cost a Tab press on
+    // every single play.
+    var list = el('div', { class: 'ac', hidden: true, role: 'listbox', tabindex: '-1' });
     input.parentNode.appendChild(list);
     input.setAttribute('autocomplete', 'off');
     var shown = [], active = -1;
@@ -1194,7 +1197,14 @@ body.mode-touch .touchbar {
       return starts.concat(has).slice(0, 8);
     }
 
-    function close() { list.hidden = true; active = -1; }
+    function close() {
+      list.hidden = true;
+      active = -1;
+      // Drop the options too: a hidden list holding last field's suggestions
+      // is stale content sitting in the document.
+      while (list.firstChild) list.removeChild(list.firstChild);
+      shown = [];
+    }
 
     function paint() {
       while (list.firstChild) list.removeChild(list.firstChild);
@@ -1541,6 +1551,60 @@ body.mode-touch .touchbar {
   }
 
   /*
+   * The vocabulary already on the sideline, read off the team's own charts so
+   * the suggestions are useful from the first snap rather than after a season
+   * of typing. Seeded once; clearing the library afterwards sticks.
+   */
+  var SEED_TERMS = {
+    formation: [
+      'PISTOL', 'SPLIT',
+      'TWINS', 'TWINS LEFT', 'TWINS RIGHT',
+      'TWINS LEFT TIGHT', 'TWINS RIGHT TIGHT',
+      'TWINS LEFT HARP', 'TWINS RIGHT HARP',
+      'TWINS LEFT HALO', 'TWINS RIGHT HALO',
+      'TWINS LEFT STACK HARP', 'TWINS RIGHT STACK HALO', 'TWINS RIGHT TIGHT HARP',
+      'TRIPS RIGHT',
+      'BUNCH LEFT TIGHT', 'BUNCH RIGHT TIGHT',
+      'BUNCH LEFT TIGHT FLIP', 'BUNCH RIGHT TIGHT FLIP',
+      'HEAVY HARP', 'HEAVY HALO',
+      'GUN RIGHT'
+    ],
+    motion: ['HACK', 'HIN', 'YIN', 'TRAVEL', 'ODK'],
+    playCall: [
+      // Added by hand, ready before they have been charted once.
+      '90 MAGIC', '80 MAGIC', '50 Y STICK', '50 H STICK', '50 Z STICK',
+      'FIRE', 'FLAME', '80 SPEAR TRADE', '90 SPEAR TRADE',
+      // Off the charts.
+      '50 HANK', '50 HANK Y WHEEL', '50 RATTLER OUTS', '50 SMOKE', '50 STICK',
+      '60 WIND', '80 BEARS', '80 SPEAR', '90 BEARS', '90 BEARS F BLEED', '90 BEARS X POST',
+      'BOISE NORTH', 'BOISE SOUTH',
+      'CALIFORNIA NORTH', 'CALIFORNIA SOUTH', 'X CALIFORNIA NORTH', 'Y CALIFORNIA SOUTH',
+      'Z CALIFORNIA SOUTH', 'Q CALIFORNIA SOUTH SPINNER',
+      'COUGAR NORTH', 'DART SOUTH', 'Q DART SOUTH',
+      'HAWKEYE SOUTH Y CORNER',
+      'IOWA NORTH', 'IOWA NORTH HITCH', 'IOWA NORTH READ', 'IOWA NORTH STUTTER GO',
+      'IOWA NORTH Y SLANT',
+      'IOWA SOUTH', 'IOWA SOUTH HITCH', 'IOWA SOUTH SLIDER', 'IOWA SOUTH Y CORNER',
+      'IOWA SOUTH Y SLANT', 'IOWA SOUTH Y SMOKE',
+      'LOUISIANA NORTH', 'LOUISIANA SOUTH',
+      'PANTS SOUTH', 'POWER NORTH', 'POWER SOUTH', 'SHIRT SOUTH',
+      'WASHINGTON NORTH', 'WASHINGTON NORTH Q BOOT', 'WASHINGTON SOUTH',
+      'X SLANT', 'Z SLUGGO', 'VICTORY'
+    ]
+  };
+
+  function seedTerms(terms) {
+    ['formation', 'motion', 'playCall'].forEach(function (k) {
+      var have = {};
+      terms[k].forEach(function (t) { have[t.toLowerCase()] = true; });
+      SEED_TERMS[k].forEach(function (t) {
+        if (!have[t.toLowerCase()]) terms[k].push(t);
+      });
+    });
+    return terms;
+  }
+
+  /*
    * The offence's own goal sheet. Counts and thresholds are separate on
    * purpose - "2 runs over 15" is two numbers, and either can move without
    * touching the other.
@@ -1566,7 +1630,8 @@ body.mode-touch .touchbar {
     return {
       version: SCHEMA_VERSION, activeGameId: null, games: [],
       goals: defaultGoals(),
-      terms: { formation: [], motion: [], playCall: [] }
+      terms: seedTerms({ formation: [], motion: [], playCall: [] }),
+      termsSeeded: true
     };
   }
 
@@ -1587,6 +1652,10 @@ body.mode-touch .touchbar {
       var list = raw.terms && Array.isArray(raw.terms[k]) ? raw.terms[k] : [];
       db.terms[k] = list.map(String).filter(Boolean);
     });
+    // Data saved before the library shipped gets it once. After that the
+    // stored flag means "Clear saved" is permanent.
+    db.termsSeeded = raw.termsSeeded === true;
+    if (!db.termsSeeded) { seedTerms(db.terms); db.termsSeeded = true; }
     var games = Array.isArray(raw.games) ? raw.games : [];
     db.games = games.map(function (g) {
       var game = makeGame(g);
@@ -1621,6 +1690,7 @@ body.mode-touch .touchbar {
     makePat: makePat,
     emptyDb: emptyDb,
     defaultGoals: defaultGoals,
+    SEED_TERMS: SEED_TERMS,
     normalizeDb: normalizeDb
   };
 });
