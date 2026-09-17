@@ -202,14 +202,32 @@ opponent side. Manual entries are listed there and can be removed.
 
 ## Report and goals
 
-**Report** grades the game against season targets — 3rd down %, yards per play, explosive
-plays, turnovers, points — each marked hit or miss, with nothing scored where nothing
-happened. Underneath: 3rd and 4th down, explosive runs and passes, red zone trips and
-touchdowns, scoring drives, three-and-outs, turnovers, first downs, yards per play. With
-more than one game charted, the season totals sit below the game.
+**Report** grades every game against the offensive goal sheet, each row marked hit or miss,
+and nothing graded where nothing has happened yet:
 
-Targets live in **Edit season goals**, including what counts as an explosive run or pass
-(12 and 16 yards by default). They travel with your data.
+| Goal | Default |
+|---|---|
+| First downs | 10+ |
+| Rushing yards | 125+ |
+| Passing yards | 150+ |
+| Runs of 15+ yards | 2+ |
+| Passes of 25+ yards | 2+ |
+| Turnovers | 0 |
+| TFL of 5+ yards | at most 1 |
+| 3rd down conversion | 70%+ |
+| Points | 21+ |
+| Win | — |
+
+Every number, and every threshold behind one (what counts as a long run, a long pass, a
+tackle for loss), is editable in **Edit season goals** and travels with your data.
+
+**Win** is graded from the scoreboard, so it needs the opponent's points kept there.
+**TFL** counts any run, scramble or sack that lost 5 or more — a play a flag wiped credits
+no yardage, so it never lands here.
+
+Underneath the goals: 3rd and 4th down, explosive runs and passes, red zone trips and
+touchdowns, scoring drives, three-and-outs, turnovers, TFL taken, rushing and passing
+yards, yards per play. With more than one game charted, season totals sit below the game.
 
 A red zone *trip* means a snap inside their 20 — the situation the number is actually
 asking about. A 40-yard touchdown run passes through the red zone without testing it.

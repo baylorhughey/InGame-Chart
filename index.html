@@ -1067,28 +1067,7 @@ body.mode-touch .touchbar {
     <h2>Season goals</h2>
     <button class="btn btn-quiet" value="cancel" aria-label="Close">Close</button>
   </form>
-  <div class="dlg-body">
-    <p class="hint">Targets every game is graded against. They travel with your data.</p>
-    <form id="goals-form" class="pf-grid">
-      <label class="field"><span class="lbl">3rd down %</span>
-        <input type="text" id="goal-third" inputmode="decimal"></label>
-      <label class="field"><span class="lbl">Yards per play</span>
-        <input type="text" id="goal-ypp" inputmode="decimal"></label>
-      <label class="field"><span class="lbl">Explosive plays</span>
-        <input type="text" id="goal-explosives" inputmode="numeric"></label>
-      <label class="field"><span class="lbl">Turnovers (at most)</span>
-        <input type="text" id="goal-turnovers" inputmode="numeric"></label>
-      <label class="field"><span class="lbl">Points</span>
-        <input type="text" id="goal-points" inputmode="numeric"></label>
-      <label class="field"><span class="lbl">Explosive run is</span>
-        <input type="text" id="goal-exrun" inputmode="numeric"></label>
-      <label class="field"><span class="lbl">Explosive pass is</span>
-        <input type="text" id="goal-expass" inputmode="numeric"></label>
-      <div class="field" style="justify-content:flex-end">
-        <button type="submit" class="btn btn-primary btn-tall">Save goals</button>
-      </div>
-    </form>
-  </div>
+  <div class="dlg-body" id="goals-body"></div>
 </dialog>
 
 <dialog id="terms-dialog" class="dlg dlg-wide">
@@ -1561,16 +1540,25 @@ body.mode-touch .touchbar {
     });
   }
 
-  // Season-wide targets the report grades each game against.
+  /*
+   * The offence's own goal sheet. Counts and thresholds are separate on
+   * purpose - "2 runs over 15" is two numbers, and either can move without
+   * touching the other.
+   */
   function defaultGoals() {
     return {
-      thirdDownPct: 45,
-      yardsPerPlay: 5.5,
-      explosives: 6,
-      explosiveRun: 12,
-      explosivePass: 16,
-      turnovers: 1,
-      points: 28
+      firstDowns: 10,
+      rushYards: 125,
+      passYards: 150,
+      explosiveRunCount: 2,
+      explosiveRun: 15,
+      explosivePassCount: 2,
+      explosivePass: 25,
+      turnovers: 0,
+      tflCount: 1,          // "less than 2" = at most one
+      tflYards: 5,
+      thirdDownPct: 70,
+      points: 21
     };
   }
 
@@ -2025,10 +2013,11 @@ body.mode-touch .touchbar {
 
   // What counts as an explosive play. setGoals() keeps these in step with
   // whatever the coach set, so the report and the targets never disagree.
-  var EXPLOSIVE = { run: 12, pass: 16 };
-  function setExplosive(run, pass) {
+  var EXPLOSIVE = { run: 15, pass: 25, tfl: 5 };
+  function setExplosive(run, pass, tfl) {
     if (isFinite(run) && run > 0) EXPLOSIVE.run = Number(run);
     if (isFinite(pass) && pass > 0) EXPLOSIVE.pass = Number(pass);
+    if (isFinite(tfl) && tfl > 0) EXPLOSIVE.tfl = Number(tfl);
   }
 
   function blankPass() { return { att: 0, comp: 0, yards: 0, td: 0, int: 0, sacks: 0 }; }
@@ -2174,7 +2163,7 @@ body.mode-touch .touchbar {
       manualScore: manual.us,
       current: current,
       totals: t,
-      report: report(game, rowsById, drives, t, score)
+      report: report(game, rowsById, drives, t, score, box, manual.them)
     };
   }
 
@@ -2182,7 +2171,7 @@ body.mode-touch .touchbar {
    * Report: the handful of numbers a coach actually reviews.
    * ---------------------------------------------------------------- */
 
-  function report(game, rows, drives, t, score) {
+  function report(game, rows, drives, t, score, box, opponentScore) {
     var r = {
       thirdDownAtt: 0, thirdDownConv: 0,
       fourthDownAtt: 0, fourthDownConv: 0,
@@ -2190,10 +2179,17 @@ body.mode-touch .touchbar {
       redZoneTrips: 0, redZoneTds: 0, redZoneScores: 0,
       turnovers: 0, turnoverOnDowns: 0,
       scoringDrives: 0, threeAndOuts: 0,
-      points: score, plays: t.plays, yards: t.yards,
+      tflCount: 0,
+      rushYards: 0, passYards: 0,
+      points: score, opponentPoints: opponentScore || 0,
+      plays: t.plays, yards: t.yards,
       firstDowns: t.firstDowns, drives: drives.length,
       yardsPerPlay: t.plays ? round1(t.yards / t.plays) : 0
     };
+
+    // Yardage by phase, straight off the box score that is already built.
+    Object.keys(box.rushing).forEach(function (n) { r.rushYards = round1(r.rushYards + box.rushing[n].yards); });
+    Object.keys(box.passing).forEach(function (n) { r.passYards = round1(r.passYards + box.passing[n].yards); });
 
     (game.plays || []).forEach(function (p) {
       var row = rows[p.id];
@@ -2211,6 +2207,13 @@ body.mode-touch .touchbar {
       var gained = row.statYards || 0;
       if (type === 'run' && gained >= EXPLOSIVE.run) r.explosiveRuns += 1;
       if (type === 'pass' && p.passOutcome === 'complete' && gained >= EXPLOSIVE.pass) r.explosivePasses += 1;
+
+      // Tackles for loss: a ball carrier, a scrambler or the quarterback put
+      // on the ground well behind the line. A play a flag wiped credits no
+      // yardage, so it never lands here.
+      var runLike = type === 'run' || type === 'sack' ||
+        (type === 'pass' && p.passOutcome === 'scramble');
+      if (runLike && gained <= -EXPLOSIVE.tfl) r.tflCount += 1;
     });
 
     drives.forEach(function (d) {
@@ -2232,6 +2235,7 @@ body.mode-touch .touchbar {
     });
 
     r.explosives = r.explosiveRuns + r.explosivePasses;
+    r.won = r.points > r.opponentPoints;
     r.thirdDownPct = r.thirdDownAtt ? round1(100 * r.thirdDownConv / r.thirdDownAtt) : null;
     r.fourthDownPct = r.fourthDownAtt ? round1(100 * r.fourthDownConv / r.fourthDownAtt) : null;
     r.redZoneTdPct = r.redZoneTrips ? round1(100 * r.redZoneTds / r.redZoneTrips) : null;
@@ -2676,7 +2680,7 @@ body.mode-touch .touchbar {
 
   App.init = function () {
     App.db = Store.load();
-    E.setExplosive(App.db.goals.explosiveRun, App.db.goals.explosivePass);
+    E.setExplosive(App.db.goals.explosiveRun, App.db.goals.explosivePass, App.db.goals.tflYards);
     if (!App.db.games.length) {
       var g = M.makeGame({ name: 'Game 1' });
       App.db.games.push(g);
@@ -2793,7 +2797,7 @@ body.mode-touch .touchbar {
       var v = Number(patch[k]);
       if (isFinite(v)) App.db.goals[k] = v;
     });
-    E.setExplosive(App.db.goals.explosiveRun, App.db.goals.explosivePass);
+    E.setExplosive(App.db.goals.explosiveRun, App.db.goals.explosivePass, App.db.goals.tflYards);
     App.commit();
   };
 
@@ -2803,16 +2807,28 @@ body.mode-touch .touchbar {
    */
   App.gradeGoals = function (rep) {
     var g = App.db.goals;
-    function row(key, label, value, target, dir, suffix) {
+    function row(label, value, target, dir, suffix, targetText, valueText) {
       var ok = value == null ? null : (dir === 'down' ? value <= target : value >= target);
-      return { key: key, label: label, value: value, target: target, dir: dir, ok: ok, suffix: suffix || '' };
+      return {
+        label: label, value: value, target: target, dir: dir, ok: ok,
+        suffix: suffix || '',
+        targetText: targetText || null,
+        valueText: valueText || null
+      };
     }
     return [
-      row('thirdDownPct', '3rd down', rep.thirdDownPct, g.thirdDownPct, 'up', '%'),
-      row('yardsPerPlay', 'Yards per play', rep.plays ? rep.yardsPerPlay : null, g.yardsPerPlay, 'up', ''),
-      row('explosives', 'Explosive plays', rep.explosives, g.explosives, 'up', ''),
-      row('turnovers', 'Turnovers', rep.turnovers, g.turnovers, 'down', ''),
-      row('points', 'Points', rep.points, g.points, 'up', '')
+      row('First downs', rep.firstDowns, g.firstDowns, 'up'),
+      row('Rushing yards', rep.rushYards, g.rushYards, 'up'),
+      row('Passing yards', rep.passYards, g.passYards, 'up'),
+      row('Runs of ' + E.num(g.explosiveRun) + '+', rep.explosiveRuns, g.explosiveRunCount, 'up'),
+      row('Passes of ' + E.num(g.explosivePass) + '+', rep.explosivePasses, g.explosivePassCount, 'up'),
+      row('Turnovers', rep.turnovers, g.turnovers, 'down'),
+      row('TFL of ' + E.num(g.tflYards) + '+ yards', rep.tflCount, g.tflCount, 'down'),
+      row('3rd down', rep.thirdDownPct, g.thirdDownPct, 'up', '%'),
+      row('Points', rep.points, g.points, 'up'),
+      // The only goal that is not a number: it is won or it is not.
+      row('Win', rep.won ? 1 : 0, 1, 'up', '', 'W',
+        rep.points + ' \u2013 ' + rep.opponentPoints)
     ];
   };
 
@@ -3131,7 +3147,7 @@ body.mode-touch .touchbar {
       totals.opponentPoints = (totals.opponentPoints || 0) + c.opponentScore;
       ['thirdDownAtt', 'thirdDownConv', 'fourthDownAtt', 'fourthDownConv', 'explosiveRuns',
        'explosivePasses', 'redZoneTrips', 'redZoneTds', 'turnovers', 'turnoverOnDowns',
-       'scoringDrives', 'threeAndOuts'].forEach(function (k) {
+       'scoringDrives', 'threeAndOuts', 'tflCount', 'rushYards', 'passYards'].forEach(function (k) {
         season[k] = (season[k] || 0) + c.report[k];
       });
       games.push({ game: g, computed: c });
@@ -3142,6 +3158,8 @@ body.mode-touch .touchbar {
     season.firstDowns = totals.firstDowns;
     season.drives = totals.drives;
     season.explosives = (season.explosiveRuns || 0) + (season.explosivePasses || 0);
+    season.opponentPoints = totals.opponentPoints;
+    season.won = totals.points > totals.opponentPoints;
     season.yardsPerPlay = totals.plays ? E.round1(totals.yards / totals.plays) : 0;
     season.thirdDownPct = season.thirdDownAtt
       ? E.round1(100 * season.thirdDownConv / season.thirdDownAtt) : null;
@@ -3978,20 +3996,7 @@ body.mode-touch .touchbar {
     qs('#btn-import').addEventListener('click', function () { qs('#import-dialog').showModal(); });
     qs('#btn-help').addEventListener('click', openHelp);
     qs('#btn-scoreboard').addEventListener('click', openScoreboard);
-    qs('#goals-form').addEventListener('submit', function (ev) {
-      ev.preventDefault();
-      App.setGoals({
-        thirdDownPct: qs('#goal-third').value,
-        yardsPerPlay: qs('#goal-ypp').value,
-        explosives: qs('#goal-explosives').value,
-        turnovers: qs('#goal-turnovers').value,
-        points: qs('#goal-points').value,
-        explosiveRun: qs('#goal-exrun').value,
-        explosivePass: qs('#goal-expass').value
-      });
-      qs('#goals-dialog').close();
-      notice('info', 'Goals saved.');
-    });
+
 
     global.addEventListener('resize', function () {
       if (qs('#mode-select').value === 'auto') applyMode('auto');
@@ -4354,15 +4359,49 @@ body.mode-touch .touchbar {
     if (!dlg.open) dlg.showModal();
   }
 
+  var GOAL_FIELDS = [
+    { key: 'firstDowns', label: 'First downs' },
+    { key: 'rushYards', label: 'Rushing yards' },
+    { key: 'passYards', label: 'Passing yards' },
+    { key: 'explosiveRunCount', label: 'Runs of X+ — how many' },
+    { key: 'explosiveRun', label: '…where a long run is' },
+    { key: 'explosivePassCount', label: 'Passes of X+ — how many' },
+    { key: 'explosivePass', label: '…where a long pass is' },
+    { key: 'turnovers', label: 'Turnovers (at most)' },
+    { key: 'tflCount', label: 'TFL (at most)' },
+    { key: 'tflYards', label: '…where a TFL is a loss of' },
+    { key: 'thirdDownPct', label: '3rd down %' },
+    { key: 'points', label: 'Points' }
+  ];
+
   function openGoals() {
-    var g = App.db.goals;
-    qs('#goal-third').value = g.thirdDownPct;
-    qs('#goal-ypp').value = g.yardsPerPlay;
-    qs('#goal-explosives').value = g.explosives;
-    qs('#goal-turnovers').value = g.turnovers;
-    qs('#goal-points').value = g.points;
-    qs('#goal-exrun').value = g.explosiveRun;
-    qs('#goal-expass').value = g.explosivePass;
+    var host = qs('#goals-body');
+    D.clear(host);
+    host.appendChild(el('p', {
+      class: 'hint',
+      text: 'Every game is graded against these, and they travel with your data. ' +
+            'Winning is graded too — it needs the opponent score kept on the scoreboard.'
+    }));
+    var inputs = {};
+    var grid = el('div', { class: 'pf-grid' });
+    GOAL_FIELDS.forEach(function (f) {
+      var box = D.field({ label: f.label, inputmode: 'decimal' });
+      box.input.value = App.db.goals[f.key];
+      inputs[f.key] = box.input;
+      grid.appendChild(box.wrap);
+    });
+    var form = el('form', {}, [grid, el('div', { class: 'row gap-top' }, [
+      el('button', { type: 'submit', class: 'btn btn-primary btn-tall' }, ['Save goals'])
+    ])]);
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var patch = {};
+      GOAL_FIELDS.forEach(function (f) { patch[f.key] = inputs[f.key].value; });
+      App.setGoals(patch);
+      qs('#goals-dialog').close();
+      notice('info', 'Goals saved.');
+    });
+    host.appendChild(form);
     qs('#goals-dialog').showModal();
   }
 
@@ -4569,14 +4608,14 @@ body.mode-touch .touchbar {
   function goalsBlock(title, grades) {
     var rows = grades.map(function (g) {
       var cls = g.ok == null ? 'goal-none' : (g.ok ? 'goal-hit' : 'goal-miss');
+      var shown = g.valueText != null ? g.valueText
+        : (g.value == null ? '—' : E.num(g.value) + g.suffix);
+      var target = g.targetText != null ? g.targetText
+        : (g.dir === 'down' ? '≤ ' : '≥ ') + E.num(g.target) + g.suffix;
       return el('div', { class: 'goal-row' }, [
         el('div', { text: g.label }),
-        el('div', { class: 'goal-val ' + cls, text: g.value == null ? '—' : E.num(g.value) + g.suffix }),
-        el('div', {
-          class: 'goal-target',
-          text: (g.dir === 'down' ? '≤ ' : '≥ ') + E.num(g.target) + g.suffix +
-                (g.ok == null ? '' : (g.ok ? '  ✓' : '  ✗'))
-        })
+        el('div', { class: 'goal-val ' + cls, text: shown }),
+        el('div', { class: 'goal-target', text: target + (g.ok == null ? '' : (g.ok ? '  ✓' : '  ✗')) })
       ]);
     });
     return el('div', { class: 'statblock' }, [
@@ -4595,8 +4634,11 @@ body.mode-touch .touchbar {
       ['Scoring drives', r.scoringDrives + ' of ' + r.drives],
       ['Three and outs', String(r.threeAndOuts)],
       ['Turnovers lost', String(r.turnovers)],
+      ['TFL taken', String(r.tflCount)],
       ['Turnovers on downs', String(r.turnoverOnDowns)],
       ['First downs', String(r.firstDowns)],
+      ['Rushing yards', E.num(r.rushYards)],
+      ['Passing yards', E.num(r.passYards)],
       ['Yards per play', r.plays ? E.num(r.yardsPerPlay) : '—']
     ];
     return el('div', { class: 'statblock' }, [
