@@ -715,6 +715,40 @@ html.dlg-poly-open::before {
 .scorechip .lbl { font-family: var(--display); letter-spacing: 0.12em; font-size: 0.8rem; }
 .sc-dash { color: var(--ink-3); }
 
+.split {
+  display: flex;
+  height: 20px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--line-2);
+  min-width: 120px;
+}
+.split-run, .split-pass {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink);
+  transition: width 120ms ease;
+}
+.split-run { background: var(--gold); }
+.split-pass { background: var(--ink); color: #fff; }
+table.tend td:nth-child(3) { width: 34%; min-width: 130px; }
+tr.tend-thin td { opacity: 0.55; }
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 0.35rem; vertical-align: -1px; }
+.legend .sw-run { background: var(--gold); }
+.legend .sw-pass { background: var(--ink); }
+
 .goal-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
@@ -1035,6 +1069,7 @@ body.mode-touch .touchbar {
       <button type="button" class="tab" role="tab" data-tab="plays" accesskey="2">All plays</button>
       <button type="button" class="tab" role="tab" data-tab="box" accesskey="3">Box score</button>
       <button type="button" class="tab" role="tab" data-tab="report" accesskey="5">Report</button>
+      <button type="button" class="tab" role="tab" data-tab="tend" accesskey="6">Tendencies</button>
       <button type="button" class="tab" role="tab" data-tab="games" accesskey="4">Games</button>
     </nav>
     <div class="tabpanels">
@@ -1042,6 +1077,7 @@ body.mode-touch .touchbar {
       <div class="tabpanel" id="tab-plays" role="tabpanel" hidden></div>
       <div class="tabpanel" id="tab-box" role="tabpanel" hidden></div>
       <div class="tabpanel" id="tab-report" role="tabpanel" hidden></div>
+      <div class="tabpanel" id="tab-tend" role="tabpanel" hidden></div>
       <div class="tabpanel" id="tab-games" role="tabpanel" hidden></div>
     </div>
   </section>
@@ -1208,6 +1244,12 @@ body.mode-touch .touchbar {
         <input type="text" id="game-opponent" autocomplete="off" placeholder="Central"></label>
       <label class="field"><span class="lbl">Date</span>
         <input type="date" id="game-date"></label>
+      <label class="field"><span class="lbl">Where</span>
+        <select id="game-venue">
+          <option value="home">Home</option>
+          <option value="away">Away</option>
+          <option value="neutral">Neutral</option>
+        </select></label>
       <div class="row gap-top">
         <button type="submit" class="btn btn-primary btn-tall" id="game-save">Save</button>
       </div>
@@ -1291,7 +1333,7 @@ body.mode-touch .touchbar {
     var list = el('div', { class: 'ac', hidden: true, role: 'listbox', tabindex: '-1' });
     input.parentNode.appendChild(list);
     input.setAttribute('autocomplete', 'off');
-    var shown = [], active = -1;
+    var shown = [], active = -1, justAccepted = false;
 
     function matches(q) {
       var all = getItems() || [];
@@ -1332,12 +1374,19 @@ body.mode-touch .touchbar {
     function accept(text) {
       input.value = text;
       close();
+      // The input event is for anyone else listening; our own handler must
+      // not take it as a cue to reopen the list we just closed.
+      justAccepted = true;
       input.dispatchEvent(new Event('input', { bubbles: true }));
+      justAccepted = false;
     }
 
     function open() {
-      if (input.disabled) return;
-      shown = matches(input.value.trim());
+      if (input.disabled || justAccepted) return;
+      var q = input.value.trim();
+      shown = matches(q);
+      // Nothing left to choose: the field already holds the only match.
+      if (shown.length === 1 && shown[0].toLowerCase() === q.toLowerCase()) shown = [];
       active = -1;
       paint();
     }
@@ -1538,6 +1587,7 @@ body.mode-touch .touchbar {
       name: attrs.name || '',
       opponent: attrs.opponent || '',
       date: attrs.date || nowIso().slice(0, 10),
+      venue: attrs.venue === 'away' || attrs.venue === 'neutral' ? attrs.venue : 'home',
       createdAt: attrs.createdAt || nowIso(),
       finishedAt: attrs.finishedAt || null,
       // Points that no offensive snap can explain: defence, special teams,
@@ -2434,6 +2484,128 @@ body.mode-touch .touchbar {
     return t;
   }
 
+  /* ---------------------------------------------------------------- *
+   * Tendencies: what the defence sees us do.
+   *
+   * Everything here buckets by the CALL, not the outcome. A scramble and a
+   * sack were both pass calls; that is what a scout would chart, and it is
+   * what you are checking yourself against.
+   * ---------------------------------------------------------------- */
+
+  function callType(p) {
+    if (p.playType === 'run') return 'run';
+    if (p.playType === 'pass' || p.playType === 'sack') return 'pass';
+    var pen = penaltyOf(p);
+    if (pen && pen.beyondLOS) {
+      if (pen.underlyingType === 'run') return 'run';
+      if (pen.underlyingType === 'pass') return 'pass';
+    }
+    return null;   // wiped penalty, safety - nothing was called
+  }
+
+  /*
+   * Was the play good enough for the down it was on? The usual standard:
+   * half the distance on first, seventy percent on second, all of it after
+   * that.
+   */
+  function isSuccess(row, p) {
+    if (row.pending || row.yards == null) return false;
+    if (p.td) return true;
+    var need = row.distance;
+    if (row.down === 1) need = need * 0.5;
+    else if (row.down === 2) need = need * 0.7;
+    return row.yards >= need;
+  }
+
+  function zoneOf(fp) {
+    if (fp <= 20) return 'Backed up (own 1-20)';
+    if (fp <= 50) return 'Own 21 to midfield';
+    if (fp < 80) return 'Midfield to their 21';
+    return 'Red zone';
+  }
+
+  function distanceBand(d, goalToGo) {
+    if (goalToGo) return 'Goal to go';
+    if (d <= 3) return 'Short (1-3)';
+    if (d <= 6) return 'Medium (4-6)';
+    if (d <= 10) return 'Long (7-10)';
+    return 'Very long (11+)';
+  }
+
+  function blankTend() {
+    return { plays: 0, run: 0, pass: 0, yards: 0, success: 0, resolved: 0, td: 0 };
+  }
+
+  function addTo(map, key, call, row, p) {
+    if (!key) return;
+    if (!map[key]) map[key] = blankTend();
+    var b = map[key];
+    b.plays += 1;
+    b[call] += 1;
+    if (!row.pending && row.yards != null) {
+      b.resolved += 1;
+      b.yards = round1(b.yards + row.statYards);
+      if (isSuccess(row, p)) b.success += 1;
+    }
+    if (p.td) b.td += 1;
+  }
+
+  function finish(map) {
+    return Object.keys(map).map(function (k) {
+      var b = map[k];
+      return {
+        key: k, plays: b.plays, run: b.run, pass: b.pass, td: b.td,
+        runPct: b.plays ? Math.round(100 * b.run / b.plays) : 0,
+        passPct: b.plays ? Math.round(100 * b.pass / b.plays) : 0,
+        yards: b.yards,
+        avg: b.resolved ? round1(b.yards / b.resolved) : null,
+        successPct: b.resolved ? Math.round(100 * b.success / b.resolved) : null
+      };
+    }).sort(function (a, b) { return b.plays - a.plays; });
+  }
+
+  /*
+   * games: [{game, rows}] so one game or a whole season goes through the
+   * same code.
+   */
+  function tendencies(sets) {
+    var byDown = {}, byBand = {}, byFormation = {}, byPlay = {},
+        byZone = {}, byMotion = {}, byDownBand = {};
+    var total = blankTend();
+
+    sets.forEach(function (set) {
+      (set.game.plays || []).forEach(function (p) {
+        var row = set.rows[p.id];
+        if (!row || !isLive(p)) return;
+        var call = callType(p);
+        if (!call) return;
+
+        var ord = ['', '1st', '2nd', '3rd', '4th'][row.down] || String(row.down);
+        var band = distanceBand(row.distance, row.goalToGo);
+        addTo(byDown, ord + ' down', call, row, p);
+        addTo(byBand, band, call, row, p);
+        addTo(byDownBand, ord + ' & ' + band.replace(/ \(.*\)/, ''), call, row, p);
+        addTo(byZone, zoneOf(row.snapFp), call, row, p);
+        addTo(byMotion, p.motion ? 'With motion' : 'No motion', call, row, p);
+        if (p.formation) addTo(byFormation, p.formation, call, row, p);
+        if (p.playCall) addTo(byPlay, p.playCall, call, row, p);
+        addTo({ all: total }, 'all', call, row, p);
+      });
+    });
+
+    var all = finish({ all: total })[0] || null;
+    return {
+      total: all,
+      byDown: finish(byDown).sort(function (a, b) { return a.key.localeCompare(b.key); }),
+      byBand: finish(byBand),
+      byDownBand: finish(byDownBand),
+      byZone: finish(byZone),
+      byMotion: finish(byMotion),
+      byFormation: finish(byFormation),
+      byPlay: finish(byPlay)
+    };
+  }
+
   function formatDownDistance(down, distance, goalToGo) {
     var ord = ['', '1st', '2nd', '3rd', '4th'][down] || String(down);
     if (goalToGo) return ord + ' & Goal';
@@ -2449,6 +2621,9 @@ body.mode-touch .touchbar {
     resolvePlay: resolvePlay,
     computeDrive: computeDrive,
     computeGame: computeGame,
+    tendencies: tendencies,
+    callType: callType,
+    isSuccess: isSuccess,
     setExplosive: setExplosive,
     EXPLOSIVE: EXPLOSIVE,
     creditPlay: creditPlay,
@@ -2682,7 +2857,9 @@ body.mode-touch .touchbar {
   function boxCsv(game, computed) {
     var rows = [];
     var box = computed.box;
-    rows.push(['Game', game.name || '(unnamed)', 'vs', game.opponent || '', game.date]);
+    rows.push(['Game', game.name || '(unnamed)',
+      game.venue === 'away' ? 'at' : 'vs', game.opponent || '', game.date,
+      game.venue === 'away' ? 'Away' : game.venue === 'neutral' ? 'Neutral' : 'Home']);
     rows.push(['Our score', computed.score]);
     rows.push([]);
     rows.push(['PASSING', 'Comp', 'Att', 'Yards', 'TD', 'INT', 'Sacks']);
@@ -2929,7 +3106,7 @@ body.mode-touch .touchbar {
   App.updateGame = function (patch) {
     var g = App.activeGame();
     if (!g) return;
-    ['name', 'opponent', 'date'].forEach(function (k) {
+    ['name', 'opponent', 'date', 'venue'].forEach(function (k) {
       if (patch[k] != null) g[k] = patch[k];
     });
     App.commit();
@@ -3306,6 +3483,20 @@ body.mode-touch .touchbar {
       });
     });
   }
+
+  /*
+   * scope 'game' is what the defence has seen today; 'season' is what they
+   * will have on film before they play us.
+   */
+  App.tendencies = function (scope) {
+    if (scope === 'season') {
+      return E.tendencies(App.db.games.map(function (g) {
+        return { game: g, rows: E.computeGame(g).rows };
+      }));
+    }
+    var g = App.activeGame();
+    return E.tendencies([{ game: g, rows: App.computed.rows }]);
+  };
 
   App.seasonSummary = function () {
     var box = { passing: {}, rushing: {}, receiving: {} };
@@ -4066,8 +4257,7 @@ body.mode-touch .touchbar {
     var g = App.activeGame();
     var c = App.computed;
     var host = qs('#summary-body');
-    qs('#summary-title').textContent =
-      (g.name || 'Game') + (g.opponent ? ' vs ' + g.opponent : '') + (g.finishedAt ? ' — Final' : '');
+    qs('#summary-title').textContent = gameTitle(g) + (g.finishedAt ? ' — Final' : '');
     D.clear(host);
 
     host.appendChild(el('div', { class: 'final-score' }, [
@@ -4347,7 +4537,8 @@ body.mode-touch .touchbar {
       var attrs = {
         name: qs('#game-name').value.trim(),
         opponent: qs('#game-opponent').value.trim(),
-        date: qs('#game-date').value
+        date: qs('#game-date').value,
+        venue: qs('#game-venue').value
       };
       if (ui.gameDialogMode === 'new') App.newGame(attrs);
       else App.updateGame(attrs);
@@ -4641,6 +4832,7 @@ body.mode-touch .touchbar {
     qs('#game-name').value = mode === 'new' ? '' : (g.name || '');
     qs('#game-opponent').value = mode === 'new' ? '' : (g.opponent || '');
     qs('#game-date').value = mode === 'new' ? new Date().toISOString().slice(0, 10) : (g.date || '');
+    qs('#game-venue').value = mode === 'new' ? 'home' : (g.venue || 'home');
     qs('#game-dialog').showModal();
     qs('#game-name').focus();
   }
@@ -4667,7 +4859,7 @@ body.mode-touch .touchbar {
       sel.appendChild(el('option', {
         value: g.id,
         selected: g.id === game.id,
-        text: (g.name || 'Untitled') + (g.opponent ? ' vs ' + g.opponent : '')
+        text: gameTitle(g)
       }));
     });
     sel.appendChild(el('option', { value: '__new', text: '+ New game...' }));
@@ -4779,6 +4971,7 @@ body.mode-touch .touchbar {
     else if (ui.tab === 'plays') renderPlaysTab(game, c);
     else if (ui.tab === 'box') renderBoxTab(game, c);
     else if (ui.tab === 'report') renderReportTab(game, c);
+    else if (ui.tab === 'tend') renderTendTab();
     else renderGamesTab();
   }
 
@@ -4830,6 +5023,86 @@ body.mode-touch .touchbar {
         ])
       ])
     ]);
+  }
+
+  /*
+   * A run/pass split with its sample size next to it. Under about five plays
+   * a percentage is noise, so the bar is drawn but the row is marked thin.
+   */
+  function tendTable(title, rows, label) {
+    if (!rows.length) return null;
+    var body = el('tbody', {}, rows.map(function (r) {
+      return el('tr', { class: r.plays < 5 ? 'tend-thin' : '' }, [
+        el('td', { text: r.key }),
+        el('td', { text: String(r.plays) }),
+        el('td', {}, [
+          el('div', { class: 'split' }, [
+            el('div', { class: 'split-run', style: 'width:' + r.runPct + '%' },
+              [r.runPct >= 18 ? el('span', { text: r.runPct + '%' }) : null]),
+            el('div', { class: 'split-pass', style: 'width:' + r.passPct + '%' },
+              [r.passPct >= 18 ? el('span', { text: r.passPct + '%' }) : null])
+          ])
+        ]),
+        el('td', { text: r.run + ' / ' + r.pass }),
+        el('td', { text: r.avg == null ? '—' : E.num(r.avg) }),
+        el('td', { text: r.successPct == null ? '—' : r.successPct + '%' }),
+        el('td', { text: r.td ? String(r.td) : '' })
+      ]);
+    }));
+    return el('div', { class: 'statblock' }, [
+      el('h2', { text: title }),
+      el('div', { class: 'table-wrap' }, [
+        el('table', { class: 'stats tend' }, [
+          el('thead', {}, [el('tr', {}, [label, 'Plays', 'Run / Pass', 'R / P', 'Avg', 'Success', 'TD']
+            .map(function (h) { return el('th', { text: h }); }))]),
+          body
+        ])
+      ])
+    ]);
+  }
+
+  function renderTendTab() {
+    var host = qs('#tab-tend');
+    D.clear(host);
+    var scope = ui.tendScope || 'game';
+    var t = App.tendencies(scope);
+
+    host.appendChild(el('div', { class: 'row wrap', style: 'margin-bottom:.8rem' }, [
+      el('button', {
+        type: 'button', class: 'btn btn-sm' + (scope === 'game' ? ' btn-primary' : ''),
+        onclick: function () { ui.tendScope = 'game'; render(); }
+      }, ['This game']),
+      el('button', {
+        type: 'button', class: 'btn btn-sm' + (scope === 'season' ? ' btn-primary' : ''),
+        onclick: function () { ui.tendScope = 'season'; render(); }
+      }, ['Season']),
+      el('span', { class: 'hint', style: 'margin:0 0 0 auto' },
+        [t.total ? t.total.plays + ' called plays' : 'nothing charted yet'])
+    ]));
+
+    if (!t.total) {
+      host.appendChild(el('div', { class: 'empty', text: 'Chart some plays and your tendencies show up here.' }));
+      return;
+    }
+
+    host.appendChild(el('div', { class: 'legend' }, [
+      el('span', {}, [el('i', { class: 'sw-run' }), 'Run']),
+      el('span', {}, [el('i', { class: 'sw-pass' }), 'Pass']),
+      el('span', { class: 'hint', style: 'margin:0' },
+        ['Success = half the yards on 1st, 70% on 2nd, all of it on 3rd and 4th. Faded rows are under five plays.'])
+    ]));
+
+    [['By down', t.byDown, 'Down'],
+     ['By distance', t.byBand, 'To go'],
+     ['By down and distance', t.byDownBand, 'Situation'],
+     ['By field zone', t.byZone, 'Zone'],
+     ['Motion', t.byMotion, ''],
+     ['By formation', t.byFormation, 'Formation'],
+     ['By play call', t.byPlay, 'Play']
+    ].forEach(function (spec) {
+      var block = tendTable(spec[0], spec[1], spec[2]);
+      if (block) host.appendChild(block);
+    });
   }
 
   function renderReportTab(game, c) {
@@ -4932,6 +5205,12 @@ body.mode-touch .touchbar {
 
   function convButton(label, fn) {
     return el('button', { type: 'button', class: 'btn btn-sm', onclick: fn }, [label]);
+  }
+
+  function gameTitle(g) {
+    var vs = g.venue === 'away' ? ' at ' : (g.venue === 'neutral' ? ' vs ' : ' vs ');
+    return (g.name || 'Game') + (g.opponent ? vs + g.opponent : '') +
+      (g.venue === 'away' ? ' (away)' : g.venue === 'neutral' ? ' (neutral)' : ' (home)');
   }
 
   function endLabel(reason) {
@@ -5165,6 +5444,7 @@ body.mode-touch .touchbar {
           }, [(g.name || 'Untitled') + (g.id === active.id ? '  •' : '')])
         ]),
         el('td', { text: g.opponent || '—' }),
+        el('td', { text: g.venue === 'away' ? 'Away' : g.venue === 'neutral' ? 'Neutral' : 'Home' }),
         el('td', { text: g.date || '' }),
         el('td', { text: String(cc.score) }),
         el('td', { text: String(cc.totals.plays) }),
@@ -5184,7 +5464,7 @@ body.mode-touch .touchbar {
       el('h2', { text: 'Games' }),
       el('div', { class: 'table-wrap' }, [
         el('table', { class: 'stats' }, [
-          el('thead', {}, [el('tr', {}, ['Game', 'Opponent', 'Date', 'Pts', 'Plays', 'Yds', ''].map(function (h) {
+          el('thead', {}, [el('tr', {}, ['Game', 'Opponent', 'Where', 'Date', 'Pts', 'Plays', 'Yds', ''].map(function (h) {
             return el('th', { text: h });
           }))]),
           body

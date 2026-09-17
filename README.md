@@ -42,6 +42,7 @@ keeps working from memory for the session.
 
 | | |
 |---|---|
+| **Game details** | Name, opponent, date and home/away/neutral, set from the Games tab. The game reads back as *Week 3 at Central (away)*. |
 | **Yard lines** | A bare number is **their** side: `40` is their 40. A minus makes it ours: `-25` is our own 25. `50` is midfield either way. `+40`, `o25` and `opp40` still work. Only one half of the field needs a keystroke, and it's the one you say out loud anyway. |
 | **What you type** | The starting spot of each drive, and the snap spot of each play. Nothing else about field position. |
 | **Yards gained** | `fieldPos(next snap spot) − fieldPos(this snap spot)`, computed when the next play is entered. A play shows as **pending** until then. |
@@ -221,6 +222,20 @@ The offence scores itself off the chart: 6 for a touchdown, the conversion, and 
 made field goal (**FG good**, a drive action). Everything else is entered by hand — click
 the scoreboard in the top bar for defensive and return touchdowns, safeties, and the whole
 opponent side. Manual entries are listed there and can be removed.
+
+## Tendencies
+
+What the defence sees. Every called play is bucketed **by the call, not the outcome** — a
+scramble and a sack were both pass calls, which is what a scout would chart and what you
+are checking yourself against.
+
+Run/pass split, sample size, average gain, success rate and touchdowns, broken out by:
+down · distance · down and distance together · field zone · with and without motion ·
+formation · play call. Toggle between this game and the whole season — the season view is
+what an opponent will have on film before they play you.
+
+**Success** is the usual standard: half the distance on 1st, 70% on 2nd, all of it on 3rd
+and 4th. Rows under five plays are faded, because a percentage off three snaps is noise.
 
 ## Report and goals
 
