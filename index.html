@@ -2252,6 +2252,13 @@ body.mode-touch .touchbar {
 
       if (reason) {
         row.driveEnd = reason;
+        /*
+         * A drive-ending play skipped the first-down check entirely, so a
+         * touchdown was never counted as one. It reaches the end zone, which
+         * is at or past the line to gain in every case, so it earned one.
+         * A turnover did not: possession was lost whatever the yardage.
+         */
+        if (reason === 'td' && ballFp >= ltg) row.firstDown = true;
         if (!ended) { ended = reason; endedByPlayId = p.id; }
       } else {
         var pen = penaltyOf(p);
@@ -6122,10 +6129,49 @@ body.mode-touch .touchbar {
     eq(box.passing['12'].td, 0, 'the TD was a run');
     eq(box.receiving['80'].rec, 1); near(box.receiving['80'].yards, 14);
     eq(box.receiving['11'].rec, 1); near(box.receiving['11'].yards, 32);
-    eq(g.totals.firstDowns, 2);
+    // Two catches reached the marker, and the touchdown reached the end zone.
+    eq(g.totals.firstDowns, 3);
   });
 
   /* ----- down & distance edge cases ---------------------------------- */
+
+  test('a touchdown counts as a first down, a turnover does not', function () {
+    var b = new Builder();
+    b.startDrive(-20);                                   // 1st & 10, marker at our 30
+    b.play({ spot: -20, playType: 'run', carrier: '22' });        // to -24: 2nd & 6
+    b.play({ spot: -24, playType: 'pass', passOutcome: 'complete', qb: '12', receiver: '80' });
+    b.play({ spot: -30, playType: 'run', carrier: '22', td: true });
+    var g = b.compute();
+    var r = g.drives[0].rows;
+    eq(r[1].firstDown, true, 'the catch reached the marker');
+    eq(r[2].firstDown, true, 'and so did the touchdown');
+    eq(g.totals.firstDowns, 2, 'both are in the team total');
+    eq(g.report.thirdDownAtt, 0);
+
+    // The same yardage, given away instead of scored.
+    var f = new Builder();
+    f.startDrive(-20);
+    var lost = f.play({ spot: -20, playType: 'run', carrier: '22', turnover: 'fumble' });
+    lost.endSpot = -45;                                   // 25 yards, then lost it
+    var fg = f.compute();
+    eq(fg.drives[0].rows[0].firstDown, false, 'possession was lost, so no first down');
+    eq(fg.totals.firstDowns, 0);
+  });
+
+  test('a touchdown on third down is a conversion and a first down', function () {
+    var b = new Builder();
+    b.startDrive(-20);
+    b.play({ spot: -20, playType: 'run', carrier: '22' });          // +2 -> 2nd & 8
+    b.play({ spot: -22, playType: 'run', carrier: '22' });          // +3 -> 3rd & 5
+    b.play({ spot: -25, playType: 'pass', passOutcome: 'complete', qb: '12', receiver: '80', td: true });
+    var g = b.compute();
+    eq(dd(g.drives[0].rows[2]), '3rd & 5');
+    eq(g.drives[0].rows[2].firstDown, true);
+    eq(g.report.thirdDownAtt, 1);
+    eq(g.report.thirdDownConv, 1);
+    eq(g.report.thirdDownPct, 100);
+    eq(g.totals.firstDowns, 1, 'only the scoring play reached the marker');
+  });
 
   test('goal to go caps the distance at the goal line', function () {
     var b = new Builder();
