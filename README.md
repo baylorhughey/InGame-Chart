@@ -95,10 +95,20 @@ Layout menu overrides it.
   the series.
 - **Turnover on downs is detected, never selected.** A 4th-down play that comes up short and
   isn't a score ends the drive by itself once it resolves.
-- **Penalties wipe the play by default** — no carry, catch, yardage or TD credited to anyone,
-  which is right for a foul at or behind the line. **Beyond the LOS** charts the real play
-  underneath (with the yards you type) and applies the flag on top as a separate field
-  position adjustment.
+- **An accepted penalty wipes the play** — no carry, catch, yardage or TD credited to
+  anyone, wherever the foul happened, holding thirty yards downfield included — and the
+  down is replayed. That is the normal case and it is what you get by leaving the toggle
+  alone.
+- **Play still counted** is the other case: the whistle blew, the play stood, and the flag
+  went on top of it. Then the real play underneath is charted (with the yards you type),
+  the stats count, and the down moves on as normal. If you are not sure which case you are
+  looking at, leave it off. It used to be labelled *Beyond the LOS*, which read as a
+  question about where the foul happened and invited the wrong answer; the stored data is
+  unchanged, so old games reload exactly as charted.
+- **Every third and fourth down is listed** in the Report tab, one line each: drive, down
+  and distance, snap spot, yards, and whether it converted. The conversion rate is the one
+  number a coach checks against memory, and a number you cannot audit is worth nothing when
+  it disagrees with the press box.
 - **A 2-point try** is charted like any other snap and never touches the box score. Only the
   drive record and the score know about it.
 

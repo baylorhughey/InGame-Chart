@@ -622,6 +622,12 @@ table.stats tfoot td { font-weight: 800; background: #F5F4F0; }
 table.stats tr:last-child td { border-bottom: none; }
 .table-wrap { overflow-x: auto; }
 
+/* The third/fourth-down audit list: the result column carries the verdict. */
+table.stats.chances td:first-child { font-weight: 500; color: var(--ink-2); }
+table.stats.chances td:last-child { font-weight: 700; }
+table.stats.chances tr.conv-yes td:last-child { color: var(--good); }
+table.stats.chances tr.conv-no td:last-child { color: var(--bad); }
+
 /* ---------------- dialogs ---------------- */
 
 /*
@@ -2049,9 +2055,11 @@ body.mode-touch .touchbar {
 
   function penaltyOf(p) { return (p.playType === 'penalty' && p.penalty) ? p.penalty : null; }
 
-  // A standalone (line-of-scrimmage) penalty wipes the play and repeats the
-  // down. A "beyond the line of scrimmage" penalty has a real play under it,
-  // so that play consumed the down and kept its stats.
+  // An accepted penalty wipes the play and replays the down, wherever the foul
+  // happened. The `beyondLOS` flag is the other case: the play stood and the
+  // flag went on top of it (a dead-ball foul), so it consumed the down and kept
+  // its stats. The flag is named for the question the form used to ask; the
+  // form now asks whether the play counted, which is what it always meant.
   function isStandalonePenalty(p) {
     var pen = penaltyOf(p);
     return !!pen && !pen.beyondLOS;
@@ -2538,6 +2546,34 @@ body.mode-touch .touchbar {
       if (runLike && gained <= -EXPLOSIVE.tfl) r.tflCount += 1;
     });
 
+    /*
+     * Every third and fourth down the chart counted, in order, so the rate
+     * can be read against a paper chart instead of taken on faith. A number
+     * that disagrees with the press box is worth nothing if there is no way
+     * to see which snaps it is built from.
+     */
+    var byId = {};
+    (game.plays || []).forEach(function (p) { byId[p.id] = p; });
+    r.downChances = [];
+    drives.forEach(function (d, di) {
+      d.rows.forEach(function (row) {
+        if (row.pending || (row.down !== 3 && row.down !== 4)) return;
+        var p = byId[row.id];
+        if (!p || !isLive(p) || isStandalonePenalty(p)) return;
+        r.downChances.push({
+          drive: di + 1,
+          playId: row.id,
+          down: row.down,
+          distance: row.distance,
+          goalToGo: row.goalToGo,
+          spot: row.spot,
+          yards: row.yards,
+          td: !!p.td,
+          converted: row.firstDown || !!p.td
+        });
+      });
+    });
+
     drives.forEach(function (d) {
       // A trip means a snap inside their 20 - the situation red-zone
       // efficiency is actually asking about. A 40-yard touchdown run passes
@@ -2909,7 +2945,7 @@ body.mode-touch .touchbar {
     if (pen) {
       bits.push('on ' + (pen.on === 'us' ? 'us' : 'them') + ' ' + pen.yards + 'yd');
       if (pen.autoFirst) bits.push('auto 1st');
-      if (pen.beyondLOS) bits.push('beyond LOS (' + pen.underlyingType + ', ' + pen.creditedYards + 'yd credited)');
+      if (pen.beyondLOS) bits.push('play stood (' + pen.underlyingType + ', ' + pen.creditedYards + 'yd credited)');
     }
     if (p.turnover) bits.push(p.turnover);
     if (p.isTwoPoint) bits.push('2-pt try');
@@ -3905,7 +3941,7 @@ body.mode-touch .touchbar {
     });
     var penYards = D.field({ label: 'Yards', class: 'num-field', inputmode: 'numeric', placeholder: '10' });
     var penAuto = D.toggle({ label: 'Automatic 1st down' });
-    var penBeyond = D.toggle({ label: 'Beyond the LOS' });
+    var penBeyond = D.toggle({ label: 'Play still counted' });
     penBeyond.input.addEventListener('change', function () { sync(); });
     var penCredited = D.field({
       label: 'Yards credited to the play', class: 'num-field', inputmode: 'text', placeholder: '0'
@@ -3920,9 +3956,10 @@ body.mode-touch .touchbar {
       D.el('div', { class: 'row wrap gap-top' }, [penYards.wrap, penAuto.wrap, penBeyond.wrap]),
       D.el('div', {
         class: 'pf-note pen-hint',
-        text: 'Beyond the LOS = the play still counted and the flag went on top. ' +
-              'Did the ref walk it off from the snap, or from where the play ended? ' +
-              'Snap \u2192 leave it off.'
+        text: 'Leave this off for a normal accepted penalty, wherever the foul happened: ' +
+              'the play is wiped, nobody gets stats, and the down is replayed. ' +
+              'Tick it only when the play stood and the flag went on top of it \u2014 ' +
+              'a dead-ball foul after the whistle. Then the stats count and the down moves on.'
       })
     ]);
     context.appendChild(penRow);
@@ -5329,6 +5366,33 @@ body.mode-touch .touchbar {
   }
 
   /*
+   * The third and fourth downs behind the rate, one line each. This exists
+   * because a conversion rate is the one number a coach checks against memory,
+   * and memory and the chart disagreeing is useless without the list.
+   */
+  function downChanceTable(r) {
+    var list = r.downChances || [];
+    if (!list.length) return null;
+    var rows = list.map(function (c) {
+      var result = c.td ? 'TD' : (c.converted ? '1st down' : 'no');
+      return el('tr', { class: c.converted ? 'conv-yes' : 'conv-no' }, [
+        el('td', { text: 'Drive ' + c.drive }),
+        el('td', { text: E.formatDownDistance(c.down, c.distance, c.goalToGo) }),
+        el('td', { text: E.formatSpot(c.spot) }),
+        el('td', { text: (c.yards > 0 ? '+' : '') + E.num(c.yards) }),
+        el('td', { text: result })
+      ]);
+    });
+    return el('div', { class: 'statblock' }, [
+      el('h2', { text: 'Every third and fourth down' }),
+      el('p', { class: 'hint', text: 'Check this against your paper chart. A standalone penalty replays the down, so it is not listed and not counted.' }),
+      el('div', { class: 'table-wrap' }, [
+        el('table', { class: 'stats chances' }, [el('tbody', {}, rows)])
+      ])
+    ]);
+  }
+
+  /*
    * A run/pass split with its sample size next to it. Under about five plays
    * a percentage is noise, so the bar is drawn but the row is marked thin.
    */
@@ -5417,6 +5481,8 @@ body.mode-touch .touchbar {
     ]));
     host.appendChild(goalsBlock('This game vs goals', App.gradeGoals(c.report)));
     host.appendChild(situationTable('Situational — this game', c.report));
+    var chances = downChanceTable(c.report);
+    if (chances) host.appendChild(chances);
 
     var season = App.seasonSummary();
     if (App.db.games.length > 1) {
@@ -5449,7 +5515,7 @@ body.mode-touch .touchbar {
       var pen = p.penalty || {};
       bits.push('Penalty on ' + (pen.on === 'us' ? 'us' : 'them') + ' — ' + E.num(pen.yards) + ' yd');
       if (pen.autoFirst) bits.push('auto 1st');
-      if (pen.beyondLOS) bits.push('beyond LOS');
+      if (pen.beyondLOS) bits.push('play stood');
       cls = 'is-penalty';
     }
     if (p.turnover === 'fumble') { bits.push('FUMBLE LOST'); cls = 'is-turnover'; }
@@ -5836,11 +5902,13 @@ body.mode-touch .touchbar {
       '<li><b>Sack</b> is a rush attempt for the QB at a loss plus a sack in the passing line &mdash; not a pass ',
       'attempt. Chart <b>intentional grounding as a sack</b>, spotted at the foul.</li>',
       '<li><b>Scramble</b> counts as a rush for the QB, never a pass attempt.</li>',
-      '<li><b>Penalty</b> repeats the down unless it is an automatic first down. Half the distance to the goal is ',
-      'enforced for you. By default the play is wiped and nobody is credited; tick <b>Beyond the LOS</b> to chart ',
-      'the real play underneath and apply the flag on top. Ask: did the ref walk it off from the snap, or from ',
-      'where the play ended? Snap &rarr; leave it off.</li>',
-      '<li>When a flag is <b>not</b> walked off from the snap &mdash; holding downfield on a run, enforced from ',
+      '<li><b>Penalty</b> replays the down unless it is an automatic first down or the yardage reaches the ',
+      'marker. Half the distance to the goal is enforced for you. An accepted flag wipes the play &mdash; ',
+      'no stats for anybody, wherever the foul happened, including holding thirty yards downfield.</li>',
+      '<li>Tick <b>Play still counted</b> only for a foul that did not wipe the play: the whistle blew, the ',
+      'play stood, and the flag went on top of it. Then the stats count and the down moves on as normal. ',
+      'If you are not sure, leave it off &mdash; that is the common case.</li>',
+      '<li>When a flag is <b>not</b> walked off from the snap &mdash; holding downfield, enforced from ',
       'the spot of the foul &mdash; type the yard line into <b>Ball ended at</b>, and the chart follows the ball ',
       'instead of the arithmetic.</li>',
       '<li><b>Turnover on downs</b> is never something you pick &mdash; a 4th-down play that comes up short ends ',
@@ -6171,6 +6239,57 @@ body.mode-touch .touchbar {
     eq(g.report.thirdDownConv, 1);
     eq(g.report.thirdDownPct, 100);
     eq(g.totals.firstDowns, 1, 'only the scoring play reached the marker');
+  });
+
+  test('the third-down list and the third-down rate come from the same snaps', function () {
+    var b = new Builder();
+    // Drive one: convert a third down, then fail one and turn it over on downs.
+    b.startDrive(-20);
+    b.play({ spot: -20, playType: 'run', carrier: '22' });           // +2  -> 2nd & 8
+    b.play({ spot: -22, playType: 'pass', passOutcome: 'incomplete', qb: '12' }); // 3rd & 8
+    b.play({ spot: -22, playType: 'run', carrier: '22' });           // +9  -> 1st & 10
+    b.play({ spot: -31, playType: 'run', carrier: '22' });           // +1  -> 2nd & 9
+    b.play({ spot: -32, playType: 'run', carrier: '22' });           // +1  -> 3rd & 8
+    b.play({ spot: -33, playType: 'pass', passOutcome: 'incomplete', qb: '12' }); // 4th & 8
+    var last = b.play({ spot: -33, playType: 'pass', passOutcome: 'incomplete', qb: '12' });
+    last.endSpot = -33;
+    var g = b.compute();
+    var r = g.report;
+
+    eq(r.thirdDownAtt, 2);
+    eq(r.thirdDownConv, 1);
+    eq(r.fourthDownAtt, 1);
+    eq(r.fourthDownConv, 0);
+
+    // One line per counted chance, in the order they were played.
+    eq(r.downChances.length, 3);
+    eq(r.downChances[0].down, 3); eq(r.downChances[0].converted, true);
+    eq(r.downChances[1].down, 3); eq(r.downChances[1].converted, false);
+    eq(r.downChances[2].down, 4); eq(r.downChances[2].converted, false);
+    eq(r.downChances[0].drive, 1);
+
+    // The list is the rate's own arithmetic, not a second opinion on it.
+    var thirds = r.downChances.filter(function (c) { return c.down === 3; });
+    eq(thirds.length, r.thirdDownAtt, 'listed thirds match the attempts');
+    eq(thirds.filter(function (c) { return c.converted; }).length, r.thirdDownConv);
+  });
+
+  test('a standalone penalty on third down is neither listed nor counted', function () {
+    var b = new Builder();
+    b.startDrive(-20);
+    b.play({ spot: -20, playType: 'run', carrier: '22' });           // +2  -> 2nd & 8
+    b.play({ spot: -22, playType: 'run', carrier: '22' });           // +2  -> 3rd & 6
+    // False start on third down: five back, and it is third down again.
+    b.play({ spot: -24, playType: 'penalty', penalty: { on: 'us', yards: 5 } });
+    var out = b.play({ spot: -19, playType: 'run', carrier: '22' }); // 3rd & 11 again
+    out.endSpot = -23;                                               // +4, short
+    var g = b.compute();
+    var r = g.report;
+    eq(dd(g.drives[0].rows[2]), '3rd & 6');
+    eq(dd(g.drives[0].rows[3]), '3rd & 11', 'the flag replayed the down');
+    eq(r.thirdDownAtt, 1, 'one third down, played twice');
+    eq(r.downChances.length, 1);
+    near(r.downChances[0].distance, 11, 'the one that was actually played out');
   });
 
   test('goal to go caps the distance at the goal line', function () {
