@@ -1752,14 +1752,17 @@ body.mode-touch .touchbar {
     attrs = attrs || {};
     return {
       on: attrs.on === 'them' ? 'them' : 'us',
-      yards: Number(attrs.yards) || 0,
+      // Null on anything charted since penalties started resolving from the
+      // next snap spot. A number only survives on an older game, where it is
+      // the last resort for a flag with nothing charted after it.
+      yards: attrs.yards == null || attrs.yards === '' ? null : (Number(attrs.yards) || 0),
       autoFirst: !!attrs.autoFirst,
       beyondLOS: !!attrs.beyondLOS,
       underlyingType: attrs.underlyingType || 'none',  // none | run | pass
       creditedYards: Number(attrs.creditedYards) || 0,
-      // Where the ball actually ended up, when the flag was not walked off
-      // from the snap - a foul enforced from its own spot, say. Overrides the
-      // computed walk-off entirely.
+      // Where the ball actually ended up, stated outright. Beats the next
+      // snap spot, so a flag between two drives - or one the coach wants
+      // pinned - still lands where it should.
       endedAt: attrs.endedAt == null || attrs.endedAt === '' ? null : Number(attrs.endedAt)
     };
   }
@@ -2081,9 +2084,11 @@ body.mode-touch .touchbar {
    *   2. endSpot           - "resolve last play" with a final yard line
    *   3. TD                - endpoint is known: 100 - fieldPos(snap)
    *   4. immediate zeros   - incomplete / spike / interception
-   *   5. penalty math      - self-resolving from the stated yardage
-   *   6. next play's snap spot in this drive
-   *   7. pending
+   *   5. next play's snap spot in this drive
+   *   6. pending
+   *
+   * A penalty runs the same chain. It used to be the one play type that
+   * resolved itself, out of arithmetic the coach had to feed it.
    */
   function resolvePlay(p, nextPlay) {
     var snapFp = fieldPos(p.spot);
@@ -2103,30 +2108,38 @@ body.mode-touch .touchbar {
     }
 
     if (pen) {
-      var credited = pen.beyondLOS ? creditedYards(p) : 0;
-      out.statYards = pen.beyondLOS ? credited : 0;
+      out.statYards = pen.beyondLOS ? creditedYards(p) : 0;
 
       /*
-       * Not every flag is walked off from the snap. A foul enforced from its
-       * own spot - holding downfield on a run, say - can leave the ball
-       * somewhere the arithmetic here would never reach, and guessing wrong
-       * poisons the line to gain for the rest of the series. So when the
-       * coach states the spot, it wins outright.
+       * A flag is marked off from wherever the officials decide: the previous
+       * spot, the spot of the foul, half the distance to the goal. From a
+       * press box you often cannot tell which, and guessing wrong poisons the
+       * line to gain for the rest of the series. The one thing anyone can see
+       * is where they put the ball down for the next snap. So a penalty ends
+       * where the next snap says it ends, exactly like a run - no yardage to
+       * type and no enforcement to reason about.
        */
-      if (pen.endedAt != null) {
-        out.endFp = clampFp(fieldPos(pen.endedAt));
-        out.yards = round1(out.endFp - snapFp);
+      var stated = pen.endedAt != null ? pen.endedAt : p.endSpot;
+      if (stated != null) {
+        out.endFp = clampFp(fieldPos(stated));
         out.spotStated = true;
+      } else if (nextPlay) {
+        out.endFp = clampFp(fieldPos(nextPlay.spot));
+      } else if (pen.yards != null) {
+        /*
+         * Charted before penalties worked this way, and nothing after it to
+         * measure against. Walk it off from the stated yardage so the last
+         * play of an older drive still reads as it was charted.
+         */
+        var enfFp = clampFp(snapFp + out.statYards);
+        var d = penaltyDelta(enfFp, pen.on, pen.yards);
+        out.penaltyYards = d.delta;
+        out.halved = d.halved;
+        out.endFp = clampFp(enfFp + d.delta);
+      } else {
+        out.pending = true;
         return out;
       }
-
-      // Otherwise: credited yards move the ball first, and the flag is walked
-      // off from there.
-      var enfFp = clampFp(snapFp + credited);
-      var d = penaltyDelta(enfFp, pen.on, pen.yards);
-      out.penaltyYards = d.delta;
-      out.halved = d.halved;
-      out.endFp = clampFp(enfFp + d.delta);
       out.yards = round1(out.endFp - snapFp);
       return out;
     }
@@ -3939,7 +3952,9 @@ body.mode-touch .touchbar {
         { value: 'them', label: 'On them', key: 'h' }
       ]
     });
-    var penYards = D.field({ label: 'Yards', class: 'num-field', inputmode: 'numeric', placeholder: '10' });
+    // Not a control: a yardage read off an older play and written straight
+    // back, so editing one for its stats does not disturb how it resolves.
+    var legacyPenaltyYards = null;
     var penAuto = D.toggle({ label: 'Automatic 1st down' });
     var penBeyond = D.toggle({ label: 'Play still counted' });
     penBeyond.input.addEventListener('change', function () { sync(); });
@@ -3948,18 +3963,33 @@ body.mode-touch .touchbar {
     });
     var penEnded = D.field({
       label: 'Ball ended at (optional)', inputmode: 'text', autocapitalize: 'off',
-      placeholder: 'only if not walked off from the snap'
+      placeholder: 'only if nothing is charted after it'
     });
+
+    /*
+     * Live entry asks for two things: who it was on, and whether it handed
+     * over a first down. Everything else about a flag - the yardage, where it
+     * was walked off from, whether the play underneath still counted - is a
+     * question for later, answered by editing the play once the drive is over.
+     * On a headset in a press box there is no time for any of it, and the next
+     * snap spot settles the only part that matters live.
+     */
+    var penAdvanced = D.el('div', { class: 'row wrap gap-top' }, [penBeyond.wrap]);
     var penRow = D.el('div', { class: 'field' }, [
       D.el('span', { class: 'lbl', text: 'Penalty' }),
       penOnSeg.root,
-      D.el('div', { class: 'row wrap gap-top' }, [penYards.wrap, penAuto.wrap, penBeyond.wrap]),
+      D.el('div', { class: 'row wrap gap-top' }, [penAuto.wrap]),
+      penAdvanced,
       D.el('div', {
         class: 'pf-note pen-hint',
-        text: 'Leave this off for a normal accepted penalty, wherever the foul happened: ' +
-              'the play is wiped, nobody gets stats, and the down is replayed. ' +
-              'Tick it only when the play stood and the flag went on top of it \u2014 ' +
-              'a dead-ball foul after the whistle. Then the stats count and the down moves on.'
+        text: isEdit
+          ? 'The ball ends wherever the next snap says it does, so there is no yardage ' +
+            'to type. Tick "Play still counted" only for a flag that did not wipe the ' +
+            'play \u2014 the whistle blew, the play stood, and it went on top. Then the ' +
+            'stats count and the down moves on instead of being replayed.'
+          : 'Log it and move on. Put the next snap wherever the officials spot the ball ' +
+            'and the chart works out the yardage, the down and the distance. Stats and ' +
+            'the finer points can be edited in afterwards.'
       })
     ]);
     context.appendChild(penRow);
@@ -4058,12 +4088,16 @@ body.mode-touch .touchbar {
       var eff = effectiveType();
       var outcome = isInt ? 'intercepted' : outcomeSeg.get();
 
+      // The flag's fine print is an edit-time question. Live, a penalty is
+      // who it was on and whether it handed over a first down.
+      var penDetail = t === 'penalty' && isEdit;
       D.show(turnoverRow, t === 'turnover');
       D.show(underRow, (t === 'turnover' && turnoverSeg.get() === 'fumble') ||
-        (t === 'penalty' && penBeyond.input.checked));
+        (penDetail && penBeyond.input.checked));
       D.show(penRow, t === 'penalty');
-      D.show(penCredited.wrap, t === 'penalty' && penBeyond.input.checked);
-      D.show(penEnded.wrap, t === 'penalty');
+      D.show(penAdvanced, penDetail);
+      D.show(penCredited.wrap, penDetail && penBeyond.input.checked);
+      D.show(penEnded.wrap, penDetail);
       D.show(outcomeRow, eff === 'pass' && !isInt);
 
       var wipedPenalty = t === 'penalty' && !penBeyond.input.checked;
@@ -4090,7 +4124,7 @@ body.mode-touch .touchbar {
     function focusContext() {
       if (isEdit) return;
       if (opts.shouldAutoFocus && !opts.shouldAutoFocus()) return;
-      var first = [carrier.input, qb.input, receiver.input, penYards.input].filter(function (i) {
+      var first = [carrier.input, qb.input, receiver.input].filter(function (i) {
         return i.offsetParent !== null && !i.value;
       })[0];
       if (first) first.focus();
@@ -4132,7 +4166,10 @@ body.mode-touch .touchbar {
 
       var pen = p.penalty;
       penOnSeg.set(pen ? pen.on : 'us');
-      penYards.input.value = pen ? pen.yards : '';
+      // A yardage from an older game is carried through untouched. It no
+      // longer drives anything with a snap charted after it, but throwing it
+      // away would change how that game's last play resolves.
+      legacyPenaltyYards = pen ? pen.yards : null;
       penAuto.input.checked = !!(pen && pen.autoFirst);
       penBeyond.input.checked = !!(pen && pen.beyondLOS);
       penCredited.input.value = pen && pen.beyondLOS ? pen.creditedYards : '';
@@ -4185,8 +4222,6 @@ body.mode-touch .touchbar {
       attrs.passOutcome = outcome;
 
       if (t === 'penalty') {
-        var yards = numOrNull(penYards.input);
-        if (yards == null) return { ok: false, error: 'Penalty yardage?', focus: penYards.input };
         var beyond = penBeyond.input.checked;
         var endedAt = null;
         var endedText = String(penEnded.input.value || '').trim();
@@ -4198,7 +4233,7 @@ body.mode-touch .touchbar {
         attrs.playType = 'penalty';
         attrs.penalty = {
           on: penOnSeg.get(),
-          yards: Math.abs(yards),
+          yards: legacyPenaltyYards,
           autoFirst: penAuto.input.checked,
           beyondLOS: beyond,
           underlyingType: beyond ? underSeg.get() : 'none',
@@ -4247,7 +4282,7 @@ body.mode-touch .touchbar {
       kneel.input.checked = false;
       spike.input.checked = false;
       if (!o.keepTwoPoint) twoPt.input.checked = false;
-      penYards.input.value = '';
+      legacyPenaltyYards = null;
       penCredited.input.value = '';
       penEnded.input.value = '';
       penAuto.input.checked = false;
@@ -5902,15 +5937,17 @@ body.mode-touch .touchbar {
       '<li><b>Sack</b> is a rush attempt for the QB at a loss plus a sack in the passing line &mdash; not a pass ',
       'attempt. Chart <b>intentional grounding as a sack</b>, spotted at the foul.</li>',
       '<li><b>Scramble</b> counts as a rush for the QB, never a pass attempt.</li>',
-      '<li><b>Penalty</b> replays the down unless it is an automatic first down or the yardage reaches the ',
-      'marker. Half the distance to the goal is enforced for you. An accepted flag wipes the play &mdash; ',
-      'no stats for anybody, wherever the foul happened, including holding thirty yards downfield.</li>',
-      '<li>Tick <b>Play still counted</b> only for a foul that did not wipe the play: the whistle blew, the ',
-      'play stood, and the flag went on top of it. Then the stats count and the down moves on as normal. ',
-      'If you are not sure, leave it off &mdash; that is the common case.</li>',
-      '<li>When a flag is <b>not</b> walked off from the snap &mdash; holding downfield, enforced from ',
-      'the spot of the foul &mdash; type the yard line into <b>Ball ended at</b>, and the chart follows the ball ',
-      'instead of the arithmetic.</li>',
+      '<li><b>Penalty</b> takes no yardage. Say who it was on, log it, and put the next snap ',
+      'wherever the officials spot the ball &mdash; walked off from the previous spot, from the spot of the ',
+      'foul, or half the distance, it makes no difference. The chart measures from the snap you type, the ',
+      'same as it does for a run.</li>',
+      '<li>The down is <b>replayed</b> unless the ball passes the marker or you tick <b>Automatic 1st down</b>. ',
+      'An accepted flag wipes the play &mdash; no stats for anybody, wherever the foul happened, including ',
+      'holding thirty yards downfield.</li>',
+      '<li>The rest of a flag is an <b>edit-time</b> question, and the play can be opened again any time. ',
+      '<b>Play still counted</b> is for a foul that did not wipe the play: the whistle blew, the play stood, ',
+      'and it went on top. Then the stats count and the down moves on as normal. <b>Ball ended at</b> pins ',
+      'the spot outright, for a flag with nothing charted after it.</li>',
       '<li><b>Turnover on downs</b> is never something you pick &mdash; a 4th-down play that comes up short ends ',
       'the drive by itself once it resolves.</li>',
       '<li>A <b>2-point try</b> is charted like any snap and never touches the box score.</li>',
@@ -6456,6 +6493,97 @@ body.mode-touch .touchbar {
     near(g.box.rushing['3'].yards, 5);
     near(g.drives[0].rows[0].yards, -10, 'the ball still moves');
     eq(g.drives[0].rows[0].statYards, 0, 'nobody is credited');
+  });
+
+  test('a penalty with no yardage ends where the next snap says it does', function () {
+    var b = new Builder();
+    b.startDrive(-20);                                              // LTG fp 30
+    b.play({ spot: -20, playType: 'run', carrier: '3' });            // +4 -> 2nd & 6
+    b.play({ spot: -24, playType: 'penalty', penalty: { on: 'us' } });
+    b.play({ spot: -14, playType: 'run', carrier: '3' });            // spotted back at our 14
+    b.play({ spot: -18, playType: 'run', carrier: '3' });
+    var d = b.compute().drives[0];
+    near(d.rows[1].yards, -10, 'measured off the next snap, not off a typed yardage');
+    eq(d.rows[1].statYards, 0, 'the flag still wipes the play');
+    eq(dd(d.rows[2]), '2nd & 16', 'the down is replayed and the marker has not moved');
+  });
+
+  test('a flag marked off from somewhere odd needs no explaining', function () {
+    // Holding at their 30 on a run from our 20, enforced from the spot of the
+    // foul: no arithmetic from the snap reaches where the ball ends up.
+    var b = new Builder();
+    b.startDrive(-20);
+    b.play({ spot: -20, playType: 'penalty', penalty: { on: 'us' } });
+    b.play({ spot: 40, playType: 'run', carrier: '3' });
+    b.play({ spot: 35, playType: 'run', carrier: '3' });
+    var d = b.compute().drives[0];
+    near(d.rows[0].yards, 40, 'the ball went where the officials put it');
+    eq(dd(d.rows[1]), '1st & 10', 'and it passed the marker, so it is a first down');
+    eq(d.rows[0].firstDown, true);
+  });
+
+  test('half the distance needs no enforcing either', function () {
+    var b = new Builder();
+    b.startDrive(-6);                               // our own 6, LTG fp 16
+    b.play({ spot: -6, playType: 'penalty', penalty: { on: 'us' } });
+    b.play({ spot: -3, playType: 'run', carrier: '3' });   // officials halved it to our 3
+    b.play({ spot: -5, playType: 'run', carrier: '3' });
+    var d = b.compute().drives[0];
+    near(d.rows[0].yards, -3);
+    eq(dd(d.rows[1]), '1st & 13', 'still first down, thirteen to go');
+  });
+
+  test('an automatic first down needs no yardage', function () {
+    var b = new Builder();
+    b.startDrive(-20);
+    b.play({ spot: -20, playType: 'run', carrier: '3' });            // +4 -> 2nd & 6
+    b.play({ spot: -24, playType: 'penalty', penalty: { on: 'them', autoFirst: true } });
+    b.play({ spot: -39, playType: 'run', carrier: '3' });            // pass interference
+    b.play({ spot: -42, playType: 'run', carrier: '3' });
+    var d = b.compute().drives[0];
+    near(d.rows[1].yards, 15);
+    eq(d.rows[1].firstDown, true);
+    eq(dd(d.rows[2]), '1st & 10');
+  });
+
+  test('a penalty with nothing charted after it is pending, like any other play', function () {
+    var b = new Builder();
+    b.startDrive(-20);
+    b.play({ spot: -20, playType: 'penalty', penalty: { on: 'us' } });
+    var d = b.compute().drives[0];
+    eq(d.rows[0].pending, true);
+    eq(d.pending, true);
+
+    // Resolving it by hand is the same flow every other play uses.
+    var f = new Builder();
+    f.startDrive(-20);
+    var flag = f.play({ spot: -20, playType: 'penalty', penalty: { on: 'us' } });
+    flag.endSpot = -10;
+    var g = f.compute().drives[0];
+    eq(g.rows[0].pending, false);
+    near(g.rows[0].yards, -10);
+    eq(g.rows[0].spotStated, true);
+  });
+
+  test('a yardage from an older game still resolves its last play', function () {
+    // Nothing charted after the flag, so the walk-off arithmetic is all there
+    // is. A game charted before the change has to reload as it was charted.
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'penalty', penalty: { on: 'us', yards: 10 } });
+    var d = b.compute().drives[0];
+    eq(d.rows[0].pending, false);
+    near(d.rows[0].yards, -10);
+
+    // With a snap charted after it, the spot wins: it is what the officials
+    // actually did, and the two only ever disagree when the arithmetic was
+    // wrong about where the ball went.
+    var f = new Builder();
+    f.startDrive(-25);
+    f.play({ spot: -25, playType: 'penalty', penalty: { on: 'us', yards: 10 } });
+    f.play({ spot: -12, playType: 'run', carrier: '3' });
+    f.play({ spot: -14, playType: 'run', carrier: '3' });
+    near(f.compute().drives[0].rows[0].yards, -13);
   });
 
   test('a beyond-the-LOS penalty keeps the play stats and moves the ball on top', function () {

@@ -53,10 +53,12 @@ Internally a signed yard line becomes one 0–100 scale measuring distance from 
 goal line: `fieldPos(v) = v < 0 ? -v : (100 - v)`. Yardage is then plain subtraction.
 
 Resolved immediately instead of pending: a touchdown (`100 − fieldPos(snap)`), an
-incompletion or a spike (0 yards, and the next snap spot pre-fills with the same spot), an
-interception (0 by convention), and any penalty. Anything else — run, completed pass,
-scramble, sack, kneel — waits for the next snap spot, or for the **Resolve last play**
-control when there is no next snap: end of half, end of game, a turnover, a final kneel.
+incompletion or a spike (0 yards, and the next snap spot pre-fills with the same spot), and
+an interception (0 by convention). Anything else — run, completed pass, scramble, sack,
+kneel, **penalty** — waits for the next snap spot, or for the **Resolve last play** control
+when there is no next snap: end of half, end of game, a turnover, a final kneel. A penalty
+used to resolve itself out of arithmetic the coach had to feed it; it is now an ordinary
+play, measured from the snap after it.
 
 ### Keyboard (desktop)
 
@@ -85,26 +87,30 @@ Layout menu overrides it.
 
 - **Goal to go.** The line to gain is capped at the goal line, so a new set inside the 10
   is `1st & Goal` with the real distance (1st & 1 at their 1), not a flat 10.
-- **A standalone penalty repeats the down.** Only a real play — or an automatic first down —
-  consumes one. A penalty that carries the ball past the line to gain is still a first down.
-- **Half the distance to the goal** is applied automatically, from the spot the flag is
-  walked off from.
-- **A flag not walked off from the snap** — holding downfield on a run, enforced from the
-  spot of the foul — takes a **Ball ended at** yard line, and the chart follows the ball
-  instead of the arithmetic. Without it the line to gain would stay wrong for the rest of
-  the series.
+- **A penalty takes no yardage.** Say who it was on, log it, and put the next snap wherever
+  the officials spot the ball. The flag ends where that snap says it ends, exactly like a
+  run. Walked off from the previous spot, from the spot of the foul, half the distance to
+  the goal — it makes no difference to the chart, because the chart never has to work out
+  which one happened. Half-the-distance enforcement and a **Ball ended at** field used to
+  exist for this; neither is needed now.
+- **The down is replayed** unless the ball passes the line to gain or **Automatic 1st down**
+  is ticked. Only a real play consumes a down.
 - **Turnover on downs is detected, never selected.** A 4th-down play that comes up short and
   isn't a score ends the drive by itself once it resolves.
 - **An accepted penalty wipes the play** — no carry, catch, yardage or TD credited to
-  anyone, wherever the foul happened, holding thirty yards downfield included — and the
-  down is replayed. That is the normal case and it is what you get by leaving the toggle
-  alone.
-- **Play still counted** is the other case: the whistle blew, the play stood, and the flag
-  went on top of it. Then the real play underneath is charted (with the yards you type),
-  the stats count, and the down moves on as normal. If you are not sure which case you are
-  looking at, leave it off. It used to be labelled *Beyond the LOS*, which read as a
-  question about where the foul happened and invited the wrong answer; the stored data is
-  unchanged, so old games reload exactly as charted.
+  anyone, wherever the foul happened, holding thirty yards downfield included.
+- **The rest of a flag is an edit-time question.** Live entry asks two things, because in a
+  press box with a headset on there is no time for more. Open the play again afterwards for
+  the stats. **Play still counted** is for the foul that did not wipe the play: the whistle
+  blew, the play stood, and it went on top. Then the real play underneath is charted, the
+  stats count, and the down moves on as normal. **Ball ended at** pins the spot outright,
+  for a flag with nothing charted after it. (Play still counted was labelled *Beyond the
+  LOS*, which read as a question about where the foul happened and invited the wrong
+  answer.)
+- **Older games still load.** A penalty charted with a yardage keeps it, and that yardage is
+  used only where it is the only thing to go on: the last play of a drive, with no snap
+  after it to measure against. Everywhere else the snap spot wins, because it is what the
+  officials actually did.
 - **Every third and fourth down is listed** in the Report tab, one line each: drive, down
   and distance, snap spot, yards, and whether it converted. The conversion rate is the one
   number a coach checks against memory, and a number you cannot audit is worth nothing when
@@ -216,8 +222,10 @@ a section, search the file for its banner (`* engine.js`).
 
 One play record carries: game and drive ID, down, distance, snap spot, formation, motion,
 play call, play type, player numbers, resolved yards (or null while pending), TD flag,
-penalty details including the beyond-the-LOS flag, turnover details, overrides, and a
-timestamp. A `backfield` string is still on the record — the form dropped it as an extra
+penalty details (who it was on, automatic first down, whether the play still counted, and
+an optional stated end spot), turnover details, overrides, and a timestamp. A penalty's
+`yards` is null on anything charted since penalties started resolving from the snap spot,
+and is carried through untouched on anything older. A `backfield` string is still on the record — the form dropped it as an extra
 step per snap, but anything already charted in it survives an export and import, and still
 shows on the play row. Down, distance and yards are written back onto the record
 after each recalculation so exports carry them, but the play log remains the only source
