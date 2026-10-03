@@ -71,9 +71,9 @@ safet**Y**. (The letters are ours, not the browser's type-ahead, so `F` gets you
 without colliding with Pass.) Picking one by letter jumps straight to the number that play
 needs, so a whole game can be charted without touching the mouse.
 
-Drive actions use browser access keys — `Alt`+`D` start drive, `Alt`+`P` punt, `Alt`+`K`
-kneel, `Alt`+`S` spike, `Alt`+`H` end half, `Alt`+`Z` undo, `Alt`+`E` export, plus
-`Alt`+`R` resolve last play and `Alt`+`T` toggle TD. (Firefox uses `Alt`+`Shift`; macOS
+Drive actions use browser access keys — `Alt`+`D` start drive, `Alt`+`P` punt, `Alt`+`N`
+turnover on downs, `Alt`+`K` kneel, `Alt`+`S` spike, `Alt`+`H` end half, `Alt`+`Z` undo,
+`Alt`+`E` export, plus `Alt`+`R` resolve last play and `Alt`+`T` toggle TD. (Firefox uses `Alt`+`Shift`; macOS
 uses `Ctrl`+`Alt`.) `Esc` clears the form without logging.
 
 ### Phone
@@ -96,7 +96,14 @@ Layout menu overrides it.
 - **The down is replayed** unless the ball passes the line to gain or **Automatic 1st down**
   is ticked. Only a real play consumes a down.
 - **Turnover on downs is detected, never selected.** A 4th-down play that comes up short and
-  isn't a score ends the drive by itself once it resolves.
+  isn't a score ends the drive by itself once its yardage is known. The catch is that a
+  4th-down run or completed pass has no next snap to measure it against — the defence has
+  the ball — so it sits open and the drive never closes. The **Turnover on downs** drive
+  action, on screen only on fourth down, closes the drive so the next one can start and asks
+  where the ball ended so the carry still lands in the box score. Press it on a 4th down
+  they actually converted and the chain overrules it: the play made the line to gain, so it
+  was a first down. Every other manual end — punt, field goal, end of half — is a fact about
+  the game and stands whatever the last play did.
 - **An accepted penalty wipes the play** — no carry, catch, yardage or TD credited to
   anyone, wherever the foul happened, holding thirty yards downfield included.
 - **The rest of a flag is an edit-time question.** Live entry asks two things, because in a

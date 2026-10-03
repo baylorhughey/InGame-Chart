@@ -1079,6 +1079,7 @@ body.mode-touch .touchbar {
         <button type="button" class="btn" data-end="punt" accesskey="p">Punt</button>
         <button type="button" class="btn" data-end="fg-good">FG good</button>
         <button type="button" class="btn" data-end="missed-fg">Missed FG</button>
+        <button type="button" class="btn" data-end="downs" id="btn-downs" accesskey="n">Turnover on downs</button>
         <button type="button" class="btn" data-end="half" accesskey="h">End half</button>
         <button type="button" class="btn" data-end="game">End game</button>
         <button type="button" class="btn" id="btn-kneel" accesskey="k">Kneel</button>
@@ -2305,7 +2306,20 @@ body.mode-touch .touchbar {
 
     // A manual end (punt, missed FG, clock) only counts if no play already
     // ended the drive.
-    if (!ended && drive.manualEnd) ended = drive.manualEnd.reason;
+    if (!ended && drive.manualEnd) {
+      var manual = drive.manualEnd.reason;
+      /*
+       * Turnover on downs stays detected, never declared. The drive action
+       * that sets it exists for the other half of the problem: a 4th-down run
+       * or catch has no next snap to measure against, because the defence has
+       * the ball, so the play sits open and the drive never closes. Saying
+       * "downs" closes it while the yardage is still being entered. But if
+       * that yardage turns out to have reached the line to gain, the offence
+       * kept the ball, and no button overrules the chain.
+       */
+      if (manual === 'downs' && rows.length && rows[rows.length - 1].firstDown) manual = null;
+      if (manual) ended = manual;
+    }
 
     // Only the last conversion on a drive counts. Entering one again corrects
     // the first rather than scoring twice.
@@ -4890,9 +4904,13 @@ body.mode-touch .touchbar {
     var p = App.pendingPlay();
     var dlg = qs('#resolve-dialog');
     if (!p) { notice('info', 'Nothing is waiting to be resolved.'); return; }
+    var row = App.computed.rows[p.id];
     qs('#resolve-hint').textContent =
       'Last play: ' + describe(p).title + ' from ' + E.formatSpot(p.spot) +
-      '. Where did the ball end up?';
+      '. Where did the ball end up?' +
+      (row && row.down === 4
+        ? ' Fourth down: short of the marker and the drive ends on downs, past it and it is a first down.'
+        : '');
     qs('#resolve-spot').value = '';
     qs('#resolve-err').hidden = true;
     dlg.showModal();
@@ -5257,8 +5275,14 @@ body.mode-touch .touchbar {
     }
     if (c.current.pending) {
       var p = App.pendingPlay();
+      var what = p ? ' (' + describe(p).title + ')' : '';
+      // On fourth down there is no next snap coming, so saying the play is
+      // waiting for one is worse than useless - it is waiting on the coach.
       box.appendChild(el('div', { class: 'banner pending' }, [
-        el('span', { text: 'Last play is waiting on the next snap spot' + (p ? ' (' + describe(p).title + ')' : '') + '.' }),
+        el('span', { text: c.current.down === 4
+          ? 'Fourth down is still open' + what + '. Where did the ball end up? ' +
+            'Short of the marker ends the drive on downs.'
+          : 'Last play is waiting on the next snap spot' + what + '.' }),
         el('button', { type: 'button', class: 'btn btn-sm', onclick: openResolve }, ['Resolve it now'])
       ]));
     }
@@ -5320,6 +5344,14 @@ body.mode-touch .touchbar {
       entryForm.setSpot(cur.nextSpot);
     }
 
+    /*
+     * Only on fourth down, and only while the drive is still live. A 4th-down
+     * play that comes up short ends the drive by itself the moment its yardage
+     * is known - this is how the yardage gets known when the defence takes the
+     * ball and there is no next snap to measure against.
+     */
+    D.show(qs('#btn-downs'), !cur.needsDrive && cur.down === 4);
+
     var pending = !!App.pendingPlay();
     qs('#tb-resolve').disabled = !pending;
     qs('#btn-undo').disabled = !(App.activeGame().plays || []).length && !c.drives.length;
@@ -5327,6 +5359,11 @@ body.mode-touch .touchbar {
 
   function noteForSpot(cur) {
     if (cur.needsDrive) return null;
+    // On fourth down there may be no next snap at all, so pointing at this
+    // field as the way out of a pending play would be a dead end.
+    if (cur.pending && cur.down === 4) {
+      return 'Fourth down is open. If they got it, this spot resolves it. If not, end the drive on downs.';
+    }
     if (cur.pending) return 'The last play is still open — this spot resolves it.';
     if (cur.nextSpot != null) return 'Ball is on ' + E.formatSpot(cur.nextSpot) + '. Change it if the spot moved.';
     return null;
@@ -5924,6 +5961,7 @@ body.mode-touch .touchbar {
       'straight to a type &mdash; <kbd>R</kbd>un, <kbd>P</kbd>ass, <kbd>S</kbd>ack, penalty ',
       '<kbd>F</kbd>lag, <kbd>T</kbd>urnover, safet<kbd>Y</kbd>. Then <kbd>Tab</kbd> to the number.</li>',
       '<li><kbd>Alt</kbd>+<kbd>D</kbd> start drive &middot; <kbd>Alt</kbd>+<kbd>P</kbd> punt &middot; ',
+      '<kbd>Alt</kbd>+<kbd>N</kbd> turnover on downs &middot; ',
       '<kbd>Alt</kbd>+<kbd>K</kbd> kneel &middot; <kbd>Alt</kbd>+<kbd>S</kbd> spike &middot; ',
       '<kbd>Alt</kbd>+<kbd>H</kbd> end half &middot; <kbd>Alt</kbd>+<kbd>Z</kbd> undo &middot; ',
       '<kbd>Alt</kbd>+<kbd>E</kbd> export &middot; <kbd>Alt</kbd>+<kbd>R</kbd> resolve the last play &middot; ',
@@ -5948,8 +5986,12 @@ body.mode-touch .touchbar {
       '<b>Play still counted</b> is for a foul that did not wipe the play: the whistle blew, the play stood, ',
       'and it went on top. Then the stats count and the down moves on as normal. <b>Ball ended at</b> pins ',
       'the spot outright, for a flag with nothing charted after it.</li>',
-      '<li><b>Turnover on downs</b> is never something you pick &mdash; a 4th-down play that comes up short ends ',
-      'the drive by itself once it resolves.</li>',
+      '<li><b>Turnover on downs</b> is never something you pick: a 4th-down play that comes up short ends ',
+      'the drive by itself once its yardage is known. The catch is that a 4th-down run or catch has no next ',
+      'snap to measure it against &mdash; the defence has the ball &mdash; so it sits open and the drive never ',
+      'closes. The <b>Turnover on downs</b> action, on screen only on fourth down, closes the drive so the next ',
+      'one can start, and asks where the ball ended so the yardage still counts. If that answer turns out to ',
+      'have reached the marker, it was a first down and the drive carries on; the chain is not overruled.</li>',
       '<li>A <b>2-point try</b> is charted like any snap and never touches the box score.</li>',
       '</ul>',
 
@@ -6414,6 +6456,62 @@ body.mode-touch .touchbar {
     eq(dd(d.rows[3]), '4th & 8');
     eq(d.rows[3].driveEnd, 'downs');
     eq(d.ended, 'downs');
+  });
+
+  test('a fourth-down carry with no next snap closes the drive on downs', function () {
+    /*
+     * The shape a real fourth down takes: the defence has the ball, so there
+     * is no next snap to measure the carry against and it sits open forever.
+     * Ending the drive on downs closes it while the yardage is still being
+     * entered, and the yardage still lands in the box score.
+     */
+    var b = new Builder();
+    b.startDrive(-30);
+    b.play({ spot: -30, playType: 'run', carrier: '3' });      // +1 -> 2nd & 9
+    b.play({ spot: -31, playType: 'run', carrier: '3' });      // +1 -> 3rd & 8
+    b.play({ spot: -32, playType: 'run', carrier: '3' });      // +1 -> 4th & 7
+    var fourth = b.play({ spot: -33, playType: 'run', carrier: '3' });
+    b.endDrive('downs');
+
+    var open = b.compute().drives[0];
+    eq(open.rows[3].pending, true, 'the carry is still open');
+    eq(open.ended, 'downs', 'but the drive is closed and the next one can start');
+
+    fourth.endSpot = -35;                                      // +2, needed 7
+    var g = b.compute();
+    var d = g.drives[0];
+    eq(dd(d.rows[3]), '4th & 7');
+    eq(d.rows[3].driveEnd, 'downs', 'and now the chain says so on its own');
+    eq(d.ended, 'downs');
+    near(g.box.rushing['3'].yards, 5, 'every carry kept its yards');
+    eq(g.report.turnoverOnDowns, 1);
+  });
+
+  test('a fourth down they convert is not a turnover, whatever was pressed', function () {
+    var b = new Builder();
+    b.startDrive(-30);
+    b.play({ spot: -30, playType: 'run', carrier: '3' });
+    b.play({ spot: -31, playType: 'run', carrier: '3' });
+    b.play({ spot: -32, playType: 'run', carrier: '3' });      // 4th & 7
+    var fourth = b.play({ spot: -33, playType: 'run', carrier: '3' });
+    b.endDrive('downs');
+    fourth.endSpot = -45;                                      // +12, they got it
+
+    var g = b.compute();
+    var d = g.drives[0];
+    eq(d.rows[3].firstDown, true);
+    eq(d.ended, null, 'the chain overrules the button');
+    eq(g.report.turnoverOnDowns, 0);
+    eq(g.current.needsDrive, false, 'the drive is still live');
+
+    // Every other manual end is a fact about the game, not a guess, so it
+    // stands whatever the last play did.
+    var f = new Builder();
+    f.startDrive(-30);
+    var only = f.play({ spot: -30, playType: 'run', carrier: '3' });
+    only.endSpot = -45;                                        // a first down
+    f.endDrive('punt');
+    eq(f.compute().drives[0].ended, 'punt');
   });
 
   test('a pending play stops the chain until it resolves', function () {
