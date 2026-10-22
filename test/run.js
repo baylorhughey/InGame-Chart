@@ -16,7 +16,8 @@ const suites = [
   ['selftest', []],
   ['fuzz', [process.env.FUZZ_GAMES || '400']],
   ['mutate', [process.env.MUTATE_GAMES || '100']],
-  ['totals', [process.env.TOTALS_GAMES || '150']]
+  ['totals', [process.env.TOTALS_GAMES || '150']],
+  ['ui', []]
 ];
 
 let failed = 0;

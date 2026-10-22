@@ -33,6 +33,12 @@ instead: chart one, snapshot it, change a play, and require every other drive
 to be identical to the byte. Same for deleting, and for adding a play and
 taking it back.
 
+**`ui.js`** charts a drive through the real form and checks that every tab
+renders, that what was taken out is gone from every screen it appeared on, and
+that a database saved by an older version still loads. The other three prove
+the arithmetic; this one proves the app still shows it, which is the half that
+goes missing when something is removed rather than changed.
+
 **`totals.js`** reconciles the team line — plays, total offence, yards per
 play — against the box score it has to agree with. That line goes to the
 paper on Friday night, and it was wrong in 187 of 200 generated games before
