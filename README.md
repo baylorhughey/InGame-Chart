@@ -137,6 +137,11 @@ These follow the high-school / NCAA scoring a sideline chart is actually keeping
 - A **lost fumble** keeps every yard the play actually gained, then ends the drive.
 - Stats are credited by jersey number. **No number means nobody is credited** — the play
   still counts for the team's yardage and for down and distance.
+- **Total offence is rushing plus passing**, and a play wiped by a flag is not a play from
+  scrimmage. Penalty yardage never enters the team line — not the plays, not the yards, not
+  yards per play. First downs are the deliberate exception: a defensive penalty that moves
+  the chains is a first down and is counted as one, the way every box score in football
+  counts it. The drive chart uses the same rule, so drive yards add up to the team line.
 
 Our score comes straight off the chart: 6 for a touchdown, then 1 or 2 for the conversion.
 Opponent scoring and defensive/special-teams scores are Phase 2.
@@ -224,6 +229,21 @@ tests.js      the 35-test suite, runnable from the Help dialog
 The `engine` section holds every rule. The two input surfaces are only input surfaces:
 they read `App.computed` and call `App` actions, and hold no state of their own. To find
 a section, search the file for its banner (`* engine.js`).
+
+## Tests
+
+`node test/run.js` — four suites, all run against `index.html` itself, so nothing can pass
+against a build that isn't the one being shipped. `test/README.md` says what each one is
+for. The short version: one runs the engine's own tests, one invents thousands of games and
+checks the engine against a referee written independently from the rules of football, one
+checks what an edit does *not* touch, and one reconciles the team line against the box score
+it has to agree with.
+
+The fuzzer exists because of a pattern. Every bug a live game found had got past a test
+whose expected answer had been read off the same code it was testing — one of them asserted
+two first downs on a drive that scored a touchdown. A test written that way can only ever
+encode the bug. The referee in `test/reference.js` is written from the rules instead, and
+never from the engine; keeping it that way is the only thing that makes it worth having.
 
 ## Data model
 

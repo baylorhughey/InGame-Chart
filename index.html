@@ -1979,9 +1979,22 @@ body.mode-touch .touchbar {
    * has travelled from our own goal line, so yardage is plain subtraction.
    * ---------------------------------------------------------------- */
 
-  function fieldPos(v) { return v < 0 ? -v : (100 - v); }
+  /*
+   * A signed yard line onto one 0-100 scale measuring from our own goal line.
+   *
+   * The sign is what says whose half, and zero has a sign in JavaScript that
+   * no comparison can see: -0 < 0 is false, so our own goal line used to fall
+   * through to the opponent's branch and come back as 100. The whole length
+   * of the field, from a minus sign. Hence the explicit test for it.
+   */
+  function fieldPos(v) { return (v < 0 || 1 / v === -Infinity) ? -v : (100 - v); }
 
-  // Inverse of fieldPos. 50 comes back as -50 (midfield, displayed as "50").
+  /*
+   * Inverse of fieldPos. 50 comes back as -50 (midfield, displayed as "50"),
+   * and our own goal line comes back as -0, which is exactly why fieldPos has
+   * to know about it. Nothing is ever snapped from there - a ball down on our
+   * own goal line is a safety - so -0 is a thing to display, never to store.
+   */
   function toSigned(fp) { return fp <= 50 ? -fp : (100 - fp); }
 
   function round1(n) { return Math.round(n * 10) / 10; }
@@ -2334,9 +2347,11 @@ body.mode-touch .touchbar {
     if (ended === 'td') points += 6;
     if (ended === 'fg-good') points += 3;
 
+    // Counted the same way as the team line, so a drive chart adds up to it.
     var net = 0, live = 0;
     for (var k = 0; k < rows.length; k++) {
-      if (rows[k].yards != null) net = round1(net + rows[k].yards);
+      if (isStandalonePenalty(plays[k])) continue;
+      if (rows[k].statYards != null) net = round1(net + rows[k].statYards);
       live++;
     }
 
@@ -2505,8 +2520,10 @@ body.mode-touch .touchbar {
       driveEnded: last ? last.ended : null,
       needsDrive: !last || !!last.ended,
       needsConversion: last ? (last.needsConversion && !last.conversionSkipped) : false,
-      // What the next snap spot almost certainly is. Blank while pending.
-      nextSpot: (last && !last.pending && !last.ended) ? toSigned(last.ballFp) : null
+      // What the next snap spot almost certainly is. Blank while pending, and
+      // blank on our own goal line, which is not a place anyone snaps from.
+      nextSpot: (last && !last.pending && !last.ended && last.ballFp > 0)
+        ? toSigned(last.ballFp) : null
     };
 
     var t = totals(game, rowsById, drives);
@@ -2627,15 +2644,26 @@ body.mode-touch .touchbar {
     return r;
   }
 
+  /*
+   * The team line: plays from scrimmage and total offence.
+   *
+   * Total offence is rushing plus passing. A flag that wiped the play is not
+   * a play from scrimmage and the yardage it moved the ball is not offence -
+   * every official box score in football keeps it that way, and this line is
+   * the one that goes to the paper. First downs are the exception and are
+   * meant to be: a defensive penalty that moves the chains is a first down,
+   * and always has been counted as one.
+   */
   function totals(game, rows, drives) {
     var t = { plays: 0, yards: 0, firstDowns: 0, drives: drives.length, touchdowns: 0 };
     (game.plays || []).forEach(function (p) {
       var row = rows[p.id];
       if (!row || !isLive(p)) return;
-      t.plays += 1;
-      if (row.yards != null) t.yards = round1(t.yards + row.yards);
       if (row.firstDown) t.firstDowns += 1;
       if (p.td) t.touchdowns += 1;
+      if (isStandalonePenalty(p)) return;
+      t.plays += 1;
+      if (row.statYards != null) t.yards = round1(t.yards + row.statYards);
     });
     return t;
   }
@@ -6262,7 +6290,11 @@ body.mode-touch .touchbar {
     eq(d.ended, 'td');
     eq(d.points, 7, 'TD plus a good PAT');
     eq(g.score, 7);
-    near(d.netYards, 6 + 14 - 10 + 0 - 7 + 32 + 40, 'net drive yardage');
+    // Total offence on the drive: the holding call is not in it. The flag
+    // wiped the play, so no yardage was gained or lost on offence - the ball
+    // moved ten yards back and that is a penalty, not a play from scrimmage.
+    near(d.netYards, 6 + 14 + 0 - 7 + 32 + 40, 'net drive yardage');
+    eq(d.playCount, 6, 'six plays from scrimmage, the flag is not one of them');
 
     // Box score, hand-tallied.
     var box = g.box;
@@ -6512,6 +6544,67 @@ body.mode-touch .touchbar {
     only.endSpot = -45;                                        // a first down
     f.endDrive('punt');
     eq(f.compute().drives[0].ended, 'punt');
+  });
+
+  test('our own goal line is our own goal line, not theirs', function () {
+    /*
+     * A signed yard line carries whose half in its sign, and zero's sign is
+     * invisible to every comparison JavaScript has: -0 < 0 is false. Our own
+     * goal line used to come back as the opponent's - a hundred-yard error
+     * out of a minus sign.
+     */
+    eq(E.fieldPos(-0), 0, 'our own goal line');
+    eq(E.fieldPos(0), 100, 'a bare zero is still their goal line');
+    eq(E.formatSpot(-0), 'OUR GL');
+    eq(E.formatSpot(0), 'THEIR GL');
+    eq(E.fieldPos(E.toSigned(0)), 0, 'and it survives the round trip');
+
+    // The ball can only get there by hand. Wherever it gets there from, the
+    // chart must not then offer it as the next snap spot: nobody snaps from
+    // their own goal line, and a ball down on it is a safety.
+    var b = new Builder();
+    b.startDrive(-15);
+    var p = b.play({ spot: -15, playType: 'run', carrier: '3' });
+    p.overrides = { yards: -20 };                  // clamps at the goal line
+    var g = b.compute();
+    eq(g.drives[0].rows[0].endFp, 0);
+    eq(E.formatSpot(g.current.ballSpot), 'OUR GL');
+    eq(g.current.nextSpot, null, 'nothing to pre-fill from there');
+  });
+
+  test('total offence is plays from scrimmage, not flags', function () {
+    /*
+     * The line that goes to the paper. Rushing plus passing is total offence
+     * in every official box score in football; penalty yardage is not offence
+     * and a wiped play is not a play. First downs are the deliberate
+     * exception - a defensive flag that moves the chains is a first down.
+     */
+    var b = new Builder();
+    b.startDrive(-20);                                         // LTG fp 30
+    b.play({ spot: -20, playType: 'run', carrier: '3' });       // +8
+    b.play({ spot: -28, playType: 'penalty', penalty: { on: 'them', yards: null } });
+    b.play({ spot: -43, playType: 'run', carrier: '3' });       // +15 by flag, then +2
+    var last = b.play({ spot: -45, playType: 'run', carrier: '3' });
+    last.endSpot = -48;                                         // +3
+    var g = b.compute();
+
+    eq(g.totals.plays, 3, 'three snaps; the flag is not one of them');
+    near(g.totals.yards, 8 + 2 + 3, 'and its fifteen yards are not offence');
+    near(g.report.rushYards, 13, 'which is exactly what the box score says');
+    near(g.totals.yards, g.report.rushYards + g.report.passYards,
+      'the team line and the box score are the same number');
+    near(g.report.yardsPerPlay, 4.3);
+
+    // The flag still moved the chains, and that is a first down - the one
+    // thing on the team line a penalty is allowed to contribute to. The run
+    // before it came up two short, and nothing after it reached the new
+    // marker, so the flag earned the only one on the drive.
+    eq(g.drives[0].rows[1].firstDown, true);
+    eq(g.totals.firstDowns, 1);
+
+    // A drive chart has to add up to the team line.
+    near(g.drives[0].netYards, 13);
+    eq(g.drives[0].playCount, 3);
   });
 
   test('a pending play stops the chain until it resolves', function () {
