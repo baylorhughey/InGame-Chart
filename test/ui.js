@@ -114,12 +114,44 @@ function check(label, actual, expected) {
   check('two games charted', await page.evaluate(() => FB.App.db.games.length), 2);
   check('the season gets a situational table', await page.evaluate(() =>
     Array.from(document.querySelectorAll('#tab-report h2')).some(h => /Situational — season/.test(h.textContent))), true);
+  // Every rate on the season report has to be recomputed from the season's
+  // own numerator and denominator -- an average of averages is not one.
+  check('and every rate on it is filled in', await page.evaluate(() => {
+    const r = FB.App.seasonSummary().report;
+    return ['thirdDownPct', 'fourthDownPct', 'redZoneTdPct', 'yardsPerPlay']
+      .filter(k => r[k] === undefined);
+  }), []);
   check('and still no season grading', await page.evaluate(() =>
     document.querySelectorAll('#tab-report .goals').length), 1);
 
   // Back to the charted game; the second one exists only to make a season.
   await page.evaluate(() => FB.App.selectGame(FB.App.db.games[0].id));
   await page.waitForTimeout(120);
+
+  console.log('--- a flag reads the same everywhere it appears ---');
+  // It carries no yardage any more, so nothing may print one. The play log
+  // used to say "0 yd" beside a yards column reading +15.
+  await page.evaluate(() => {
+    FB.App.startDrive(-25);
+    FB.App.logPlay({ spot: -25, playType: 'penalty',
+      penalty: { on: 'them', autoFirst: false, beyondLOS: false,
+        underlyingType: 'none', creditedYards: 0, endedAt: null, yards: null } });
+    FB.App.logPlay({ spot: -40, playType: 'run', carrier: '22' });
+  });
+  await page.waitForTimeout(120);
+  await tab('drive');
+  const flagRow = await page.evaluate(() => {
+    const r = document.querySelector('.playlist .play.is-penalty');
+    return r ? Array.from(r.children).map(c => c.innerText.replace(/\n/g, ' ')) : null;
+  });
+  check('the flag says who it was on and no yardage', flagRow && flagRow[3], 'Penalty on them');
+  check('and the yards column carries the movement', flagRow && flagRow[4], '+15');
+  check('no stray zero or null anywhere on the row', /0 yd|null|undefined|NaN/.test((flagRow || []).join(' ')), false);
+  check('the exported chart says the same', await page.evaluate(() => {
+    const line = FB.IO.playsCsv(FB.App.activeGame(), FB.App.computed)
+      .split('\n').find(l => /penalty/.test(l));
+    return /null|undefined|NaN/.test(line) ? line : 'clean';
+  }), 'clean');
 
   console.log('--- tendencies: the split only where it means something ---');
   await tab('tend');

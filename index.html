@@ -3001,7 +3001,9 @@ body.mode-touch .touchbar {
     if (p.isKneel) bits.push('kneel');
     var pen = E.penaltyOf(p);
     if (pen) {
-      bits.push('on ' + (pen.on === 'us' ? 'us' : 'them') + ' ' + pen.yards + 'yd');
+      bits.push('on ' + (pen.on === 'us' ? 'us' : 'them'));
+      // Only an older game still carries one, and an export should not drop it.
+      if (pen.yards != null) bits.push(E.num(pen.yards) + 'yd marked off');
       if (pen.autoFirst) bits.push('auto 1st');
       if (pen.beyondLOS) bits.push('play stood (' + pen.underlyingType + ', ' + pen.creditedYards + 'yd credited)');
     }
@@ -3818,6 +3820,8 @@ body.mode-touch .touchbar {
     season.yardsPerPlay = totals.plays ? E.round1(totals.yards / totals.plays) : 0;
     season.thirdDownPct = season.thirdDownAtt
       ? E.round1(100 * season.thirdDownConv / season.thirdDownAtt) : null;
+    season.fourthDownPct = season.fourthDownAtt
+      ? E.round1(100 * season.fourthDownConv / season.fourthDownAtt) : null;
     season.redZoneTdPct = season.redZoneTrips
       ? E.round1(100 * season.redZoneTds / season.redZoneTrips) : null;
     return { box: box, totals: totals, games: games, report: season };
@@ -5637,7 +5641,10 @@ body.mode-touch .touchbar {
     else if (p.playType === 'safety') { bits.push('Safety'); if (p.carrier) bits.push('#' + p.carrier); }
     else if (p.playType === 'penalty') {
       var pen = p.penalty || {};
-      bits.push('Penalty on ' + (pen.on === 'us' ? 'us' : 'them') + ' — ' + E.num(pen.yards) + ' yd');
+      // No yardage here: a flag has not carried one since they started
+      // resolving from the next snap, and the yards column already says how
+      // far the ball moved.
+      bits.push('Penalty on ' + (pen.on === 'us' ? 'us' : 'them'));
       if (pen.autoFirst) bits.push('auto 1st');
       if (pen.beyondLOS) bits.push('play stood');
       cls = 'is-penalty';
