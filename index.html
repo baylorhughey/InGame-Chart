@@ -2397,7 +2397,7 @@ body.mode-touch .touchbar {
 
   function blankPass() { return { att: 0, comp: 0, yards: 0, td: 0, int: 0, sacks: 0 }; }
   function blankRush() { return { carries: 0, yards: 0, td: 0 }; }
-  function blankRec() { return { rec: 0, yards: 0, td: 0 }; }
+  function blankRec() { return { tgt: 0, rec: 0, yards: 0, td: 0 }; }
 
   function bucket(map, numText, blank) {
     var key = String(numText == null ? '' : numText).trim();
@@ -2471,9 +2471,23 @@ body.mode-touch .touchbar {
           q.int += 1;
         }
       }
-      if (outcome === 'complete') {
-        var w = bucket(box.receiving, p.receiver, blankRec);
-        if (w) { w.rec += 1; w.yards = round1(w.yards + yards); if (td) w.td += 1; }
+      /*
+       * A target is a pass thrown to him, caught or not. Drops are not
+       * charted and are not meant to be: drop or bad throw is a judgement
+       * call, and this is kept at game speed from a press box. Thrown to him
+       * is a fact.
+       *
+       * A spike is thrown to nobody, and a scramble was never thrown, so
+       * neither reaches here with a number on it.
+       */
+      var w = bucket(box.receiving, p.receiver, blankRec);
+      if (w) {
+        w.tgt += 1;
+        if (outcome === 'complete') {
+          w.rec += 1;
+          w.yards = round1(w.yards + yards);
+          if (td) w.td += 1;
+        }
       }
     }
   }
@@ -3065,10 +3079,10 @@ body.mode-touch .touchbar {
       rows.push(['#' + n, s.carries, E.num(s.yards), s.td, s.carries ? E.num(s.yards / s.carries) : '']);
     });
     rows.push([]);
-    rows.push(['RECEIVING', 'Rec', 'Yards', 'TD', 'Avg']);
+    rows.push(['RECEIVING', 'Tgt', 'Rec', 'Yards', 'TD', 'Avg']);
     Object.keys(box.receiving).sort(byNumber).forEach(function (n) {
       var s = box.receiving[n];
-      rows.push(['#' + n, s.rec, E.num(s.yards), s.td, s.rec ? E.num(s.yards / s.rec) : '']);
+      rows.push(['#' + n, s.tgt, s.rec, E.num(s.yards), s.td, s.rec ? E.num(s.yards / s.rec) : '']);
     });
     rows.push([]);
     rows.push(['TEAM', 'Plays', 'Yards', 'First downs', 'Drives', 'TDs']);
@@ -4051,6 +4065,9 @@ body.mode-touch .touchbar {
     var carrier = D.field({ label: 'Ball carrier #', class: 'num-field', inputmode: 'numeric', placeholder: '22' });
     var qb = D.field({ label: 'QB #', class: 'num-field', inputmode: 'numeric', placeholder: '12' });
     var receiver = D.field({ label: 'Receiver #', class: 'num-field', inputmode: 'numeric', placeholder: '80' });
+    // Reads "Receiver #" on a catch and "Targeted #" on anything else, so it
+    // is never ambiguous what the number is being asked for.
+    var receiverLabel = receiver.wrap.querySelector('.lbl');
     var playersRow = D.el('div', { class: 'pf-grid' }, [carrier.wrap, qb.wrap, receiver.wrap]);
     context.appendChild(playersRow);
 
@@ -4155,7 +4172,11 @@ body.mode-touch .touchbar {
       D.show(playersRow, !wipedPenalty);
       D.show(carrier.wrap, !wipedPenalty && (eff === 'run' || eff === 'safety'));
       D.show(qb.wrap, !wipedPenalty && (eff === 'pass' || eff === 'sack'));
-      D.show(receiver.wrap, !wipedPenalty && eff === 'pass' && outcome === 'complete');
+      // Every pass was thrown at somebody, so the number is worth having
+      // whether or not it was caught. Blank still credits nobody.
+      var thrown = eff === 'pass' && outcome !== 'scramble';
+      D.show(receiver.wrap, !wipedPenalty && thrown);
+      receiverLabel.textContent = outcome === 'complete' ? 'Receiver #' : 'Targeted #';
 
       // A TD is impossible on a wiped penalty, a sack, a safety or a pick.
       var canScore = !wipedPenalty && eff !== 'sack' && eff !== 'safety' && !isInt &&
@@ -4303,7 +4324,7 @@ body.mode-touch .touchbar {
       if (!(t === 'penalty' && !penBeyond.input.checked)) {
         if (eff === 'run' || eff === 'safety') attrs.carrier = carrier.input.value.trim();
         if (eff === 'pass' || eff === 'sack') attrs.qb = qb.input.value.trim();
-        if (eff === 'pass' && outcome === 'complete') attrs.receiver = receiver.input.value.trim();
+        if (eff === 'pass' && outcome !== 'scramble') attrs.receiver = receiver.input.value.trim();
       }
 
       if (isEdit) {
@@ -5889,8 +5910,8 @@ body.mode-touch .touchbar {
     frag.appendChild(statTable('Rushing', ['Car', 'Yds', 'TD', 'Avg'],
       ['carries', 'yards', 'td', function (s) { return s.carries ? E.round1(s.yards / s.carries) : ''; }],
       box.rushing));
-    frag.appendChild(statTable('Receiving', ['Rec', 'Yds', 'TD', 'Avg'],
-      ['rec', 'yards', 'td', function (s) { return s.rec ? E.round1(s.yards / s.rec) : ''; }],
+    frag.appendChild(statTable('Receiving', ['Tgt', 'Rec', 'Yds', 'TD', 'Avg'],
+      ['tgt', 'rec', 'yards', 'td', function (s) { return s.rec ? E.round1(s.yards / s.rec) : ''; }],
       box.receiving));
     return frag;
   }
@@ -6034,6 +6055,10 @@ body.mode-touch .touchbar {
       '<li><b>Sack</b> is a rush attempt for the QB at a loss plus a sack in the passing line &mdash; not a pass ',
       'attempt. Chart <b>intentional grounding as a sack</b>, spotted at the foul.</li>',
       '<li><b>Scramble</b> counts as a rush for the QB, never a pass attempt.</li>',
+      '<li>A <b>target</b> is a pass thrown to him, caught or not, so the number is asked for on every ',
+      'pass &mdash; <b>Receiver #</b> on a catch, <b>Targeted #</b> otherwise. It is optional: blank ',
+      'credits nobody. Drops are not charted on purpose &mdash; drop or bad throw is an argument, and ',
+      'thrown to him is a fact.</li>',
       '<li><b>Penalty</b> takes no yardage. Say who it was on, log it, and put the next snap ',
       'wherever the officials spot the ball &mdash; walked off from the previous spot, from the spot of the ',
       'foul, or half the distance, it makes no difference. The chart measures from the snap you type, the ',
@@ -6638,6 +6663,49 @@ body.mode-touch .touchbar {
     // A drive chart has to add up to the team line.
     near(g.drives[0].netYards, 13);
     eq(g.drives[0].playCount, 3);
+  });
+
+  test('a target is a pass thrown to him, caught or not', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    b.play({ spot: -25, playType: 'pass', passOutcome: 'incomplete', qb: '12', receiver: '80' });
+    b.play({ spot: -25, playType: 'pass', passOutcome: 'complete', qb: '12', receiver: '80' });
+    b.play({ spot: -37, playType: 'pass', passOutcome: 'intercepted', qb: '12', receiver: '80',
+             turnover: 'interception' });
+    var g = b.compute();
+    var r = g.box.receiving['80'];
+    eq(r.tgt, 3, 'thrown at three times');
+    eq(r.rec, 1, 'caught one');
+    near(r.yards, 12, 'and only the catch carries yards');
+    eq(g.box.passing['12'].att, 3);
+    eq(g.box.passing['12'].comp, 1);
+    eq(g.box.passing['12'].int, 1);
+  });
+
+  test('nothing is a target that was not thrown at somebody', function () {
+    var b = new Builder();
+    b.startDrive(-25);
+    // A scramble was never thrown. A spike is thrown at nobody. A sack never
+    // left his hand. None of them is anyone's target.
+    b.play({ spot: -25, playType: 'pass', passOutcome: 'scramble', qb: '12' });
+    b.play({ spot: -30, playType: 'pass', passOutcome: 'incomplete', qb: '12', isSpike: true });
+    b.play({ spot: -30, playType: 'sack', qb: '12' });
+    var last = b.play({ spot: -26, playType: 'pass', passOutcome: 'incomplete', qb: '12' });
+    last.endSpot = -26;
+    var g = b.compute();
+    eq(Object.keys(g.box.receiving).length, 0, 'nobody was targeted');
+    eq(g.box.passing['12'].att, 2, 'the spike and the incompletion are attempts');
+    eq(g.box.rushing['12'].carries, 2, 'the scramble and the sack are carries');
+
+    // A flag that wiped the play wipes the target with it.
+    var f = new Builder();
+    f.startDrive(-25);
+    f.play({ spot: -25, playType: 'penalty', qb: '12', receiver: '80',
+             penalty: { on: 'us', autoFirst: false, beyondLOS: false,
+                        underlyingType: 'none', creditedYards: 0, endedAt: null, yards: null } });
+    var run = f.play({ spot: -15, playType: 'run', carrier: '3' });
+    run.endSpot = -18;
+    eq(Object.keys(f.compute().box.receiving).length, 0, 'the flag wiped it');
   });
 
   test('a pending play stops the chain until it resolves', function () {

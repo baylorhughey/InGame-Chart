@@ -128,6 +128,44 @@ function check(label, actual, expected) {
   await page.evaluate(() => FB.App.selectGame(FB.App.db.games[0].id));
   await page.waitForTimeout(120);
 
+  console.log('--- targets: thrown to him, caught or not ---');
+  const recvLabel = () => page.evaluate(() => {
+    const i = document.querySelector('#entry-mount input[placeholder="80"]');
+    if (!i || !i.offsetParent) return 'hidden';
+    return i.closest('.field').querySelector('.lbl').textContent;
+  });
+  await page.fill(spot, '-48');
+  await page.selectOption('#entry-mount select', 'pass');
+  await page.waitForTimeout(60);
+  check('a catch asks for the receiver', await recvLabel(), 'Receiver #');
+  await page.click('#entry-mount .seg-sub [data-value="incomplete"]'); await page.waitForTimeout(60);
+  check('an incompletion asks who it was thrown at', await recvLabel(), 'Targeted #');
+  await page.click('#entry-mount .seg-sub [data-value="scramble"]'); await page.waitForTimeout(60);
+  check('a scramble was never thrown, so it asks nobody', await recvLabel(), 'hidden');
+  await page.click('#entry-mount .seg-sub [data-value="incomplete"]'); await page.waitForTimeout(60);
+
+  await page.fill('#entry-mount input[placeholder="12"]', '12');
+  await page.fill('#entry-mount input[placeholder="80"]', '80');
+  await log(); await page.waitForTimeout(80);
+  check('the incompletion counted as a target', await page.evaluate(() =>
+    FB.App.computed.box.receiving['80'].tgt), 2);
+  check('but not as a catch', await page.evaluate(() =>
+    FB.App.computed.box.receiving['80'].rec), 1);
+  // Three attempts by now: the fixture threw two before this one, and the
+  // first of those was charted with nobody noted, so it is not a target.
+  check('and the QB wears the attempt', await page.evaluate(() =>
+    [FB.App.computed.box.passing['12'].att, FB.App.computed.box.passing['12'].comp]), [3, 1]);
+  await tab('box');
+  check('the box score has a targets column', await page.evaluate(() => {
+    const t = Array.from(document.querySelectorAll('#tab-box .statblock'))
+      .find(x => /Receiving/.test(x.querySelector('h2').textContent));
+    return Array.from(t.querySelectorAll('thead th')).map(h => h.textContent);
+  }), ['#', 'Tgt', 'Rec', 'Yds', 'TD', 'Avg']);
+  check('the exported chart carries them too', await page.evaluate(() =>
+    FB.IO.boxCsv(FB.App.activeGame(), FB.App.computed, FB.App.db.team)
+      .split(/\r?\n/).find(l => /^RECEIVING/.test(l))),
+    'RECEIVING,Tgt,Rec,Yards,TD,Avg');
+
   console.log('--- a flag reads the same everywhere it appears ---');
   // It carries no yardage any more, so nothing may print one. The play log
   // used to say "0 yd" beside a yards column reading +15.

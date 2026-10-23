@@ -134,6 +134,14 @@ These follow the high-school / NCAA scoring a sideline chart is actually keeping
   it is scored this way.
 - A **scramble** is a rush for the QB, never a pass attempt.
 - An **interception** is an attempt with no completion and no yardage.
+- A **target** is a pass thrown to him — caught, dropped, broken up or picked. The form asks
+  for the number on every pass, labelled *Receiver #* on a catch and *Targeted #* on
+  anything else, and it is optional: leaving it blank credits nobody, same as everywhere
+  else. A scramble was never thrown and a spike is thrown at nobody, so neither is anyone's
+  target, and a flag that wiped the play wipes the target with it.
+- **Drops are not charted**, deliberately. Drop or bad throw is a judgement call, and this
+  is kept at game speed from a press box. *Thrown to him* is a fact; *should have caught it*
+  is an argument.
 - A **lost fumble** keeps every yard the play actually gained, then ends the drive.
 - Stats are credited by jersey number. **No number means nobody is credited** — the play
   still counts for the team's yardage and for down and distance.
@@ -287,6 +295,10 @@ Team: 62 plays, 401 yards, 18 first downs, 7-13 on third down, no turnovers
 
 **Box score → Stats for the media**, or from the end-of-game wrap-up. It copies to the
 clipboard, and it needs no file, no download and no network.
+
+Targets are deliberately **not** in this line. A paper prints catches and yards, and
+`5-78` is the format it expects. Targets are in the Box score tab and the exported chart,
+where they are for you rather than for print.
 
 Names come from **Roster** — jersey number to name, typed once a season. Numbers appear
 there automatically as soon as they are charted. Anyone still unnamed prints as `#22`, and

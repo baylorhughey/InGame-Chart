@@ -34,7 +34,7 @@ function liveFp(fp) { var c = clampFp(fp); return c < 1 ? 1 : (c > 99 ? 99 : c);
 
 function blankPass() { return { att: 0, comp: 0, yards: 0, td: 0, int: 0, sacks: 0 }; }
 function blankRush() { return { carries: 0, yards: 0, td: 0 }; }
-function blankRec() { return { rec: 0, yards: 0, td: 0 }; }
+function blankRec() { return { tgt: 0, rec: 0, yards: 0, td: 0 }; }
 function slot(map, key, blank) {
   if (!key) return null;
   if (!map[key]) map[key] = blank();
@@ -113,11 +113,13 @@ function simulate(seed, opts) {
         endFp = snapFp;
         statYards = 0;
         play.playType = 'pass'; play.passOutcome = 'incomplete'; play.qb = '12';
+        if (rnd() < 0.8) play.receiver = pick(NUMS);   // sometimes nobody is noted
       } else if (kind === 'interception') {
         endFp = snapFp;
         statYards = 0;
         play.playType = 'pass'; play.passOutcome = 'intercepted'; play.qb = '12';
         play.turnover = 'interception';
+        if (rnd() < 0.6) play.receiver = pick(NUMS);   // the intended man, when known
       } else if (kind === 'fumble') {
         endFp = liveFp(snapFp + between(-3, 14));
         statYards = round1(endFp - snapFp);
@@ -311,9 +313,20 @@ function creditReference(box, p, yards) {
       }
       if (outcome === 'intercepted') q.int += 1;
     }
-    if (outcome === 'complete') {
-      var rc = slot(box.receiving, p.receiver, blankRec);
-      if (rc) { rc.rec += 1; rc.yards = round1(rc.yards + yards); if (p.td) rc.td += 1; }
+    /*
+     * A target is a pass thrown to him. Caught, dropped, broken up, picked --
+     * it was still thrown to him, and that is all the word means. Only a
+     * catch adds a reception and yards. Drops are not a category here: the
+     * chart does not ask whether it was catchable.
+     */
+    var rc = slot(box.receiving, p.receiver, blankRec);
+    if (rc) {
+      rc.tgt += 1;
+      if (outcome === 'complete') {
+        rc.rec += 1;
+        rc.yards = round1(rc.yards + yards);
+        if (p.td) rc.td += 1;
+      }
     }
   }
 }
