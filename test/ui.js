@@ -69,21 +69,57 @@ function check(label, actual, expected) {
     check(name + ' tab has content', filled, true);
   }
 
-  console.log('--- season goals are gone ---');
+  console.log('--- the game is graded, the season is not ---');
   await tab('report');
-  check('no goals block on the report', await page.evaluate(() =>
-    !!document.querySelector('#tab-report .goals')), false);
-  check('no "vs goals" heading anywhere', await page.evaluate(() =>
-    /vs goals|against your goals/i.test(document.body.textContent)), false);
-  check('no goals dialog in the document', await page.evaluate(() =>
-    !!document.querySelector('#goals-dialog')), false);
+  check('this game is graded against the goals', await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#tab-report h2')).some(h => /This game vs goals/.test(h.textContent))), true);
+  check('with a goals block to show it', await page.evaluate(() =>
+    !!document.querySelector('#tab-report .goals')), true);
+  check('and every row of the sheet in it', await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#tab-report .goals .goal-row > div:first-child'))
+      .map(d => d.textContent)),
+    ['First downs', 'Rushing yards', 'Passing yards', 'Runs of 15+', 'Passes of 25+',
+     'Turnovers', 'TFL of 5+ yards', '3rd down', 'Points', 'Win']);
+  check('nothing grades a season', await page.evaluate(() =>
+    /season vs goals/i.test(document.body.textContent)), false);
+  check('the editor is still there, and is about a game', await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#tab-report button')).some(b => b.textContent === 'Edit goals')), true);
   check('report still has the situational table', await page.evaluate(() =>
     Array.from(document.querySelectorAll('#tab-report h2')).some(h => /Situational/.test(h.textContent))), true);
   check('and still lists every third and fourth down', await page.evaluate(() =>
     !!document.querySelector('#tab-report table.chances')), true);
   await tab('games');
-  check('no "Season goals" button', await page.evaluate(() =>
-    Array.from(document.querySelectorAll('#tab-games button')).some(b => /Season goals/i.test(b.textContent))), false);
+  check('the games tab calls them game goals', await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#tab-games button')).map(b => b.textContent).filter(t => /goals/i.test(t))),
+    ['Game goals']);
+  await page.click('#tab-games button:has-text("Game goals")');
+  await page.waitForTimeout(150);
+  check('the editor opens', await page.evaluate(() => document.querySelector('#goals-dialog').open), true);
+  check('titled for one game', await page.evaluate(() =>
+    document.querySelector('#goals-dialog h2').textContent), 'Game goals');
+  check('loaded with the sheet', await page.evaluate(() =>
+    document.querySelectorAll('#goals-body input').length), 12);
+  await page.evaluate(() => document.querySelector('#goals-dialog').close());
+
+  console.log('--- a season of games shows numbers, not grades ---');
+  await page.evaluate(() => {
+    FB.App.newGame({ opponent: 'Second', date: '2026-10-09', site: 'away' });
+    FB.App.startDrive(-20);
+    FB.App.logPlay({ spot: -20, playType: 'run', carrier: '22' });
+    FB.App.resolveLast('spot', -28);
+    FB.App.endDrive('punt');
+  });
+  await page.waitForTimeout(120);
+  await tab('report');
+  check('two games charted', await page.evaluate(() => FB.App.db.games.length), 2);
+  check('the season gets a situational table', await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#tab-report h2')).some(h => /Situational — season/.test(h.textContent))), true);
+  check('and still no season grading', await page.evaluate(() =>
+    document.querySelectorAll('#tab-report .goals').length), 1);
+
+  // Back to the charted game; the second one exists only to make a season.
+  await page.evaluate(() => FB.App.selectGame(FB.App.db.games[0].id));
+  await page.waitForTimeout(120);
 
   console.log('--- tendencies: the split only where it means something ---');
   await tab('tend');
@@ -116,23 +152,26 @@ function check(label, actual, expected) {
   await page.click('#tab-games button:has-text("Game summary")');
   await page.waitForTimeout(150);
   check('the summary opens', await page.evaluate(() => document.querySelector('#summary-dialog').open), true);
-  check('with no goals block', await page.evaluate(() =>
-    !!document.querySelector('#summary-body .goals')), false);
+  check('the game is graded there too', await page.evaluate(() =>
+    !!document.querySelector('#summary-body .goals')), true);
   check('and still has the box score', await page.evaluate(() =>
     !!document.querySelector('#summary-body table.stats')), true);
   await page.evaluate(() => document.querySelector('#summary-dialog').close());
 
-  console.log('--- a saved game from before goals were removed still loads ---');
+  console.log('--- a saved database still loads, goals and all ---');
   const migrated = await page.evaluate(() => {
     const raw = { team: { name: 'Sipsey Valley', short: 'SV' },
       goals: { firstDowns: 10, rushYards: 125, explosiveRun: 15 },
       games: [{ id: 'old', name: 'Old', opponent: 'Y', drives: [], plays: [] }],
       activeGameId: 'old' };
     const db = FB.Model.normalizeDb(raw);
-    return { games: db.games.length, keptGoals: 'goals' in db, team: db.team.short };
+    return { games: db.games.length, keptGoals: 'goals' in db, team: db.team.short,
+      firstDowns: db.goals.firstDowns, points: db.goals.points };
   });
   check('an old database still normalises', migrated.games, 1);
-  check('and the goals key is dropped, not carried', migrated.keptGoals, false);
+  check('and its goals come with it', migrated.keptGoals, true);
+  check('a target that was set is kept', migrated.firstDowns, 10);
+  check('one that was not falls back to the sheet', migrated.points, 21);
   check('everything else survives', migrated.team, 'SV');
 
   check('no page errors anywhere', errs, []);

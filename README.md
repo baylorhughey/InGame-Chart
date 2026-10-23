@@ -311,22 +311,44 @@ success, and how many it scored — which calls are worth keeping.
 **Success** is the usual standard: half the distance on 1st, 70% on 2nd, all of it on 3rd
 and 4th. Rows under five plays are faded, because a percentage off three snaps is noise.
 
-## Report
+## Report and game goals
 
-**Report** is the situational page: 3rd and 4th down, explosive runs and passes, red zone
-trips and touchdowns, scoring drives, three-and-outs, turnovers, TFL taken, rushing and
-passing yards, total offence, yards per play. With more than one game charted, season
-totals sit below the game.
+**Report** grades **the game in front of you** against the offensive goal sheet, each row
+marked hit or miss, and nothing graded where nothing has happened yet:
 
-Underneath it, **every third and fourth down is listed** — drive, down and distance, snap
+| Goal | Default |
+|---|---|
+| First downs | 10+ |
+| Rushing yards | 125+ |
+| Passing yards | 150+ |
+| Runs of 15+ yards | 2+ |
+| Passes of 25+ yards | 2+ |
+| Turnovers | 0 |
+| TFL of 5+ yards | at most 1 |
+| 3rd down conversion | 70%+ |
+| Points | 21+ |
+| Win | — |
+
+These are **game goals**, and that is the only way they are used. Nothing grades a season
+against them — an offensive staff sets out to hit these on a Friday night, not to average
+them over ten weeks, so a season column of hits and misses would be answering a question
+nobody asked. The season still gets its numbers, just not a verdict.
+
+Every target, and every threshold behind one (what counts as a long run, a long pass, a
+tackle for loss), is editable in **Edit goals** and travels with your data.
+
+**Win** is graded from the scoreboard, so it needs the opponent's points kept there.
+**TFL** counts any run, scramble or sack that lost 5 or more — a play a flag wiped credits
+no yardage, so it never lands here.
+
+Underneath the goals: 3rd and 4th down, explosive runs and passes, red zone trips and
+touchdowns, scoring drives, three-and-outs, turnovers, TFL taken, rushing and passing
+yards, total offence, yards per play. With more than one game charted, the season's
+situational numbers sit below the game's.
+
+Below those, **every third and fourth down is listed** — drive, down and distance, snap
 spot, yards, converted or not. The conversion rate is the one number a coach checks against
 memory, and a number you cannot audit is worth nothing when it disagrees with the press box.
-
-A run of 15 or more is explosive, a pass of 25, and a **TFL** is any run, scramble or sack
-that lost 5 or more — a play a flag wiped credits no yardage, so it never lands there.
-
-There is no goal sheet. There was one, graded against the team's own ten targets, and it
-came out: the numbers themselves are what gets looked at.
 
 A red zone *trip* means a snap inside their 20 — the situation the number is actually
 asking about. A 40-yard touchdown run passes through the red zone without testing it.
@@ -348,6 +370,6 @@ used on a play are always suggested whether or not they are saved.
 
 No defensive or opponent-offense charting, no play diagrams, no cloud sync or accounts.
 No quarter or hash marks: both were asked about and both were turned down as too slow to
-enter during a game. No season goal sheet — it was built, it was used, and it was not what
-got looked at. No run/pass split on the play-call table, which would only ever report that
-a run call is a run.
+enter during a game. No season-long grading against the goal sheet — the goals are what one
+game is held to, and an offensive staff does not keep season targets. No run/pass split on
+the play-call table, which would only ever report that a run call is a run.
